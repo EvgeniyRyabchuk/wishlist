@@ -8,7 +8,7 @@ const { sequelize } = require('./database/db'); // Import database connection
 const db = require('./models'); // Import all models
 
 const app = express();
-const PORT = process.env.PORT || 4000; // Changed back to port 3000
+const PORT = process.env.PORT; // Changed back to port 3000
 
 // Middleware
 app.use(cors());
