@@ -1298,7 +1298,7 @@ async function initializeDatabase() {
 
 // Start server after initializing database
 initializeDatabase().then(() => {
-  app.listen(PORT, () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Supported domains: ${SUPPORTED_DOMAINS.join(', ')}`);
   });
