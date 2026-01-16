@@ -16,6 +16,12 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
+                        primary: '#0F172A',
+                        accent: '#38BDF8',
+                        success: '#4ADE80',
+                        background: '#F8FAFC',
+                        card: '#FFFFFF',
+                        border: '#CBD5E1',
                         glass: 'rgba(255, 255, 255, 0.1)',
                         'glass-border': 'rgba(255, 255, 255, 0.2)',
                     }
@@ -25,47 +31,46 @@
     </script>
     <style>
         @import url('https://rsms.me/inter/inter.css');
-        
+
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #F8FAFC;
             min-height: 100vh;
-            backdrop-filter: blur(10px);
         }
-        
+
         .glass-card {
-            background: white;
+            background: #FFFFFF;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             border-radius: 12px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #CBD5E1;
         }
 
         .glass-button {
             transition: all 0.2s ease;
-            background: #4f46e5;
-            color: white;
+            background: #38BDF8;
+            color: #0F172A;
             border: none;
             border-radius: 8px;
         }
 
         .glass-button:hover {
-            background: #4338ca;
+            background: #0EA5E9;
             transform: translateY(-1px);
         }
 
         .secondary-button {
-            background: #f3f4f6;
-            color: #374151;
-            border: 1px solid #d1d5db;
+            background: #F1F5F9;
+            color: #0F172A;
+            border: 1px solid #CBD5E1;
         }
 
         .secondary-button:hover {
-            background: #e5e7eb;
+            background: #E2E8F0;
         }
-        
+
         .wishlist-item {
             transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid #CBD5E1;
             cursor: pointer;
         }
 
@@ -75,8 +80,9 @@
         }
 
         .booked-item {
-            background: rgba(72, 187, 120, 0.1) !important;
-            border-color: rgba(72, 187, 120, 0.2) !important;
+            background: #4ADE80 !important;
+            border-color: #4ADE80 !important;
+            color: white;
         }
 
         .animate-pulse {
@@ -104,6 +110,38 @@
         .primary-action:hover {
             transform: translateY(-1px);
         }
+
+        /* Color overrides for specific elements */
+        .text-gray-800 { color: #0F172A !important; }
+        .text-gray-600 { color: #475569 !important; }
+        .text-white { color: #FFFFFF !important; }
+        .text-indigo-600 { color: #38BDF8 !important; }
+        .bg-white { background-color: #FFFFFF !important; }
+        .border-gray-300 { border-color: #CBD5E1 !important; }
+        .focus\:ring-indigo-500:focus { --tw-ring-color: #38BDF8 !important; }
+        .hover\:bg-indigo-600:hover { background-color: #0EA5E9 !important; }
+
+        /* Robust label system - ensures visibility on any background */
+        .label-on-light-bg { color: #475569 !important; } /* Gray text for light backgrounds */
+        .label-on-dark-bg { color: #CBD5E1 !important; } /* Light gray text for dark backgrounds */
+        .label-on-colored-bg { color: #FFFFFF !important; } /* White text for colored backgrounds */
+        .label-contrast {
+            color: #0F172A !important;
+            text-shadow: 0 0 1px rgba(255, 255, 255, 0.5), 0 0 2px rgba(255, 255, 255, 0.3) !important;
+        }
+
+        /* Specific label styles for different contexts */
+        .wishlist-item .label-text {
+            color: #475569 !important;
+            transition: color 0.2s ease;
+        }
+        .wishlist-item:hover .label-text {
+            color: #0F172A !important;
+        }
+        .booked-item .label-text {
+            color: #0F172A !important;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
@@ -116,33 +154,33 @@
         </header>
 
         <main class="space-y-8">
-            <!-- Create Wishlist Section -->
-            <section id="create-wishlist" class="glass-card p-6 fade-in">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Create Your Wishlist
-                </h2>
-                
-                <form id="wishlist-form" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Create Wishlist Section - Left Side -->
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Left Side - Form -->
+                <section id="create-wishlist" class="glass-card p-6 fade-in lg:w-1/3">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Create Your Wishlist
+                    </h2>
+
+                    <form id="wishlist-form" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Your Name:</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Your Name:</label>
                             <input type="text" id="person-name" required
-                                   class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                   value="Имениник..." placeholder="Имениник...">
                         </div>
-                        
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Item Name:</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Item Name:</label>
                             <input type="text" id="item-name" required
                                    class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
                         </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Item Link (optional):</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Item Link (optional):</label>
                             <div class="flex gap-2">
                                 <input type="url" id="item-link" placeholder="https://example.com/item"
                                        class="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
@@ -151,56 +189,62 @@
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Price (optional):</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Price (optional):</label>
                             <input type="number" id="item-price" min="0" step="0.01" placeholder="0.00"
                                    class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
                         </div>
-                        
-                        <div class="flex items-end">
+
+                        <div>
                             <button type="submit" class="glass-button w-full py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action">
                                 Add Item
                             </button>
                         </div>
-                    </div>
-                    
-                    <div id="link-loading" class="hidden mt-4">
-                        <div class="flex items-center text-gray-300 animate-pulse">
-                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500 mr-2"></div>
-                            Loading product information...
-                        </div>
-                    </div>
-                    
-                    <div id="product-image-preview" class="hidden mt-4 text-center">
-                        <img id="preview-image" src="" alt="Product preview" class="max-w-xs max-h-48 mx-auto rounded-xl shadow-lg">
-                    </div>
-                    
-                    <div id="link-status" class="hidden mt-2 text-sm"></div>
-                </form>
-                
-                <div id="current-wishlist" class="mt-8">
-                    <h3 class="text-xl font-semibold text-white mb-4">Your Current Wishlist</h3>
-                    <div id="wishlist-items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-                    <div class="mt-6">
-                        <button id="generate-link-btn" class="glass-button px-6 py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action">
-                            Generate Shareable Link
-                        </button>
-                        <div id="share-link-container" class="hidden mt-4">
-                            <p class="text-gray-300 mb-2">Share this link with others:</p>
-                            <div class="flex gap-2">
-                                <input type="text" id="share-link" readonly
-                                       class="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none">
-                                <button id="copy-link-btn" class="glass-button px-4 py-3 rounded-lg text-white hover:bg-indigo-600 transition-all primary-action">
-                                    Copy
-                                </button>
+
+                        <div id="link-loading" class="hidden mt-4">
+                            <div class="flex items-center text-gray-300 animate-pulse label-contrast">
+                                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500 mr-2"></div>
+                                Loading product information...
                             </div>
                         </div>
-                    </div>
-                </div>
-            </section>
 
-            <!-- View Wishlist Section -->
+                        <div id="link-status" class="hidden mt-2 text-sm"></div>
+                    </form>
+                </section>
+
+                <!-- Right Side - Current Wishlist + Display Section -->
+                <section id="right-section" class="lg:w-2/3 space-y-8">
+                    <!-- Current Wishlist Section -->
+                    <section id="current-wishlist" class="glass-card p-6 min-h-[500px] flex flex-col">
+                        <h3 class="text-xl font-semibold text-white mb-4">Your Current Wishlist</h3>
+                        <div id="wishlist-items-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 flex-grow overflow-y-auto max-h-96 pr-2"></div>
+                        <div class="mt-6">
+                            <button id="generate-link-btn" class="glass-button w-full py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action">
+                                Generate Shareable Link
+                            </button>
+                            <div id="share-link-container" class="hidden mt-4">
+                                <p class="text-gray-300 mb-2 label-contrast">Share this link with others:</p>
+                                <div class="flex gap-2">
+                                    <input type="text" id="share-link" readonly
+                                           class="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none">
+                                    <button id="copy-link-btn" class="glass-button px-4 py-3 rounded-lg text-white hover:bg-indigo-600 transition-all primary-action">
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Wishlist Display Area -->
+                    <section id="display-wishlist" class="hidden">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">Wishlist of: <span id="owner-name" class="text-indigo-600"></span></h2>
+                        <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </section>
+                </section>
+            </div>
+
+            <!-- View Wishlist Section - Bottom -->
             <section id="view-wishlist" class="glass-card p-6 fade-in">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,50 +253,44 @@
                     </svg>
                     View Someone's Wishlist
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Enter Wishlist Link:</label>
+                        <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Enter Wishlist Link:</label>
                         <input type="text" id="view-link" placeholder="Paste the wishlist link here"
                                class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
                     </div>
-                    <div class="flex items-end">
+                    <div>
                         <button id="load-wishlist-btn" class="glass-button w-full py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action">
                             Load Wishlist
                         </button>
                     </div>
                 </div>
             </section>
-            
-            <!-- Wishlist Display Area -->
-            <section id="display-wishlist" class="hidden">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">Wishlist of: <span id="owner-name" class="text-indigo-600"></span></h2>
-                <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-            </section>
         </main>
-        
+
         <!-- Statistics Section -->
         <section id="statistics-section" class="glass-card p-6 mt-8 fade-in">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Statistics</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
                     <div class="text-xl font-bold text-gray-800" id="total-budget">$0.00</div>
-                    <div class="text-gray-600 text-sm">Total Budget</div>
+                    <div class="text-gray-600 text-sm label-contrast">Total Budget</div>
                 </div>
                 <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
                     <div class="text-xl font-bold text-gray-800" id="total-items">0</div>
-                    <div class="text-gray-600 text-sm">Total Items</div>
+                    <div class="text-gray-600 text-sm label-contrast">Total Items</div>
                 </div>
                 <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
                     <div class="text-xl font-bold text-gray-800" id="booked-items">0</div>
-                    <div class="text-gray-600 text-sm">Booked Items</div>
+                    <div class="text-gray-600 text-sm label-contrast">Booked Items</div>
                 </div>
                 <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
                     <div class="text-xl font-bold text-gray-800" id="available-items">0</div>
-                    <div class="text-gray-600 text-sm">Available Items</div>
+                    <div class="text-gray-600 text-sm label-contrast">Available Items</div>
                 </div>
             </div>
         </section>
-        
+
         <!-- Modal for Booking Items -->
         <div id="booking-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
             <div class="glass-card p-6 rounded-2xl max-w-md w-full transform transition-all duration-300 scale-95 animate-in fade-in-90 zoom-in-90">
@@ -260,9 +298,9 @@
                     <h3 class="text-xl font-semibold text-white">Book this item</h3>
                     <button id="close-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                 </div>
-                <p class="text-gray-300 mb-4">You are about to book: <strong id="booking-item-name" class="text-white"></strong></p>
+                <p class="text-gray-300 mb-4 label-contrast">You are about to book: <strong id="booking-item-name" class="text-white label-contrast"></strong></p>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Your Name:</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-2 label-contrast">Your Name:</label>
                     <input type="text" id="booker-name" required
                            class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
                 </div>
@@ -273,6 +311,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>

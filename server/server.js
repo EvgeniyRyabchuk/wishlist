@@ -2,14 +2,19 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config(); // Load environment variables
+
+const { sequelize } = require('./database/db'); // Import database connection
+const db = require('./models'); // Import all models
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Changed to port 3001 to avoid conflicts
+const PORT = process.env.PORT || 3000; // Changed back to port 3000
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('../client')); // Serve static files from the client directory
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, '../client'))); // Serve static files from the client directory
 
 // Supported domains
 const SUPPORTED_DOMAINS = [
@@ -532,26 +537,26 @@ async function extractAmazonInfo(page) {
     const titleElement = document.querySelector('#productTitle') ||
                          document.querySelector('#title') ||
                          document.querySelector('h1[data-a-size="large"]');
-    
+
     // Try to get price
     const priceElement = document.querySelector('#priceblock_ourprice') ||
                          document.querySelector('#priceblock_dealprice') ||
                          document.querySelector('.a-price .a-offscreen') ||
                          document.querySelector('#tp_price_block_ourprice_sims_feature_div');
-    
+
     // Try to get image
     const imageElement = document.querySelector('#landingImage') ||
                          document.querySelector('#imgBlkFront') ||
                          document.querySelector('#altImages img') ||
                          document.querySelector('#imageBlock img');
-    
+
     return {
       title: titleElement ? titleElement.textContent.trim() : null,
       price: priceElement ? priceElement.textContent.trim() : null,
       image: imageElement ? imageElement.src : null
     };
   });
-  
+
   return result;
 }
 
@@ -562,25 +567,25 @@ async function extractEbayInfo(page) {
     const titleElement = document.querySelector('#CenterPanelInternal h1') ||
                          document.querySelector('h1#vi-lkhdr-itmTitl') ||
                          document.querySelector('h1.x-item-title__mainTitle');
-    
+
     // Try to get price
     const priceElement = document.querySelector('.notranslate.x-price-primary') ||
                          document.querySelector('#prcIsum') ||
                          document.querySelector('.x-price-primary');
-    
+
     // Try to get image
     const imageElement = document.querySelector('#icImg') ||
                          document.querySelector('#mainImgHldr') ||
                          document.querySelector('.ux-image-carousel-item img') ||
                          document.querySelector('img#icImg');
-    
+
     return {
       title: titleElement ? titleElement.textContent.trim() : null,
       price: priceElement ? priceElement.textContent.trim() : null,
       image: imageElement ? imageElement.src : null
     };
   });
-  
+
   return result;
 }
 
@@ -591,24 +596,24 @@ async function extractBestBuyInfo(page) {
     const titleElement = document.querySelector('h1.heading-5') ||
                          document.querySelector('h1.product-name') ||
                          document.querySelector('h1[data-test="product-title"]');
-    
+
     // Try to get price
     const priceElement = document.querySelector('.priceView-hero-price .price') ||
                          document.querySelector('[data-test="product-price-current"]') ||
                          document.querySelector('.sr-only');
-    
+
     // Try to get image
     const imageElement = document.querySelector('img.primary-image') ||
                          document.querySelector('img[data-test="primary-hero-image"]') ||
                          document.querySelector('img.zoom-image');
-    
+
     return {
       title: titleElement ? titleElement.textContent.trim() : null,
       price: priceElement ? priceElement.textContent.trim() : null,
       image: imageElement ? imageElement.src : null
     };
   });
-  
+
   return result;
 }
 
@@ -619,24 +624,24 @@ async function extractTargetInfo(page) {
     const titleElement = document.querySelector('h1[data-test="product-title"]') ||
                          document.querySelector('h1.test@product.title') ||
                          document.querySelector('h1');
-    
+
     // Try to get price
     const priceElement = document.querySelector('[data-test="product-price"]') ||
                          document.querySelector('.price') ||
                          document.querySelector('[data-test="current-price"]');
-    
+
     // Try to get image
     const imageElement = document.querySelector('img[data-test="image"]') ||
                          document.querySelector('img.ProductImage-module__image___3oCZv') ||
                          document.querySelector('img');
-    
+
     return {
       title: titleElement ? titleElement.textContent.trim() : null,
       price: priceElement ? priceElement.textContent.trim() : null,
       image: imageElement ? imageElement.src : null
     };
   });
-  
+
   return result;
 }
 
@@ -647,24 +652,24 @@ async function extractAliexpressInfo(page) {
     const titleElement = document.querySelector('h1.product-title') ||
                          document.querySelector('h1[data-spm="productTitle"]') ||
                          document.querySelector('.product-title-text');
-    
+
     // Try to get price
     const priceElement = document.querySelector('.uniform-banner-box-price') ||
                          document.querySelector('.product-price-value') ||
                          document.querySelector('[data-spm="price"]');
-    
+
     // Try to get image
     const imageElement = document.querySelector('#imgExchange img') ||
                          document.querySelector('.magnifier-handle') ||
                          document.querySelector('img#characteristic-img-0');
-    
+
     return {
       title: titleElement ? titleElement.textContent.trim() : null,
       price: priceElement ? priceElement.textContent.trim() : null,
       image: imageElement ? imageElement.src : null
     };
   });
-  
+
   return result;
 }
 
@@ -896,20 +901,20 @@ async function extractContentBasedInfo(page) {
 app.post('/api/extract-product-info', async (req, res) => {
   try {
     const { url } = req.body;
-    
+
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
-    
+
     // Validate URL format
     try {
       new URL(url);
     } catch (urlError) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
-    
+
     const productInfo = await extractProductInfo(url);
-    
+
     res.json({
       success: true,
       data: productInfo
@@ -923,15 +928,349 @@ app.post('/api/extract-product-info', async (req, res) => {
   }
 });
 
-// Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+// API endpoint to create a new wishlist
+app.post('/api/lists', async (req, res) => {
+  try {
+    const { title, description, creatorName, creatorEmail } = req.body;
+
+    // Create or find the creator (only by name as per requirements)
+    let creator = await db.Creator.findOne({ where: { name: creatorName } });
+    if (!creator) {
+      creator = await db.Creator.create({
+        name: creatorName
+        // No email as per requirements
+      });
+    }
+
+    // Generate a unique numeric share token
+    const shareToken = Math.floor(1000000000000 + Math.random() * 9000000000000).toString(); // Generate a 13-digit numeric token
+
+    // Create the list
+    const newList = await db.List.create({
+      title,
+      description,
+      creatorId: creator.id,
+      shareToken
+    });
+
+    res.json({
+      id: newList.id,
+      title: newList.title,
+      description: newList.description,
+      creatorId: newList.creatorId,
+      shareToken: newList.shareToken,
+      shareableLink: `${req.protocol}://${req.get('host')}/wishlist/${newList.shareToken}`,
+      message: 'List created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating list:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to create wishlist'
+    });
+  }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Supported domains: ${SUPPORTED_DOMAINS.join(', ')}`);
+// API endpoint to get a list by share token
+app.get('/api/lists/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const list = await db.List.findOne({
+      where: { shareToken: token },
+      include: [
+        {
+          model: db.Creator,
+          as: 'creator',
+          attributes: ['name'] // Only name as per requirements
+        },
+        {
+          model: db.Goods,
+          as: 'goods',
+          include: [{
+            model: db.Guest,
+            as: 'reservedByGuest',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!list) {
+      return res.status(404).json({ error: 'List not found' });
+    }
+
+    res.json(list);
+  } catch (error) {
+    console.error('Error getting list:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to retrieve wishlist'
+    });
+  }
+});
+
+// API endpoint to add a product to a wishlist
+app.post('/api/goods', async (req, res) => {
+  try {
+    const { listId, url, name, price, imageUrl } = req.body;
+
+    let productInfo = {};
+
+    // If URL is provided, extract product info from it
+    if (url && url.trim() !== '') {
+      productInfo = await extractProductInfo(url);
+    } else {
+      // If no URL, use the provided manual data
+      productInfo = {
+        title: name || 'Manual Entry Product',
+        price: price || null,
+        image: imageUrl || null
+      };
+    }
+
+    // Create the good
+    let priceValue = null;
+    if (productInfo.price) {
+      // Clean the price string and convert to number
+      const cleanPrice = productInfo.price.toString().replace(/[^\d.,]/g, '');
+      if (cleanPrice && cleanPrice.trim() !== '') {
+        priceValue = parseFloat(cleanPrice.replace(',', '')) || null;
+      }
+    }
+
+    const newGood = await db.Goods.create({
+      name: productInfo.title || name || 'Unknown Product',
+      description: '',
+      price: priceValue,
+      imageUrl: productInfo.image || imageUrl || null,
+      url: url || '',
+      listId
+    });
+
+    res.json({
+      id: newGood.id,
+      name: newGood.name,
+      description: newGood.description,
+      price: newGood.price,
+      imageUrl: newGood.imageUrl,
+      url: newGood.url,
+      listId: newGood.listId,
+      message: 'Product added to wishlist successfully'
+    });
+  } catch (error) {
+    console.error('Error adding product:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to add product to wishlist'
+    });
+  }
+});
+
+// API endpoint to reserve a product
+app.put('/api/goods/:id/reserve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { guestName, guestEmail } = req.body;
+
+    // Find or create the guest
+    let guest = await db.Guest.findOne({ where: { name: guestName } }); // Only search by name as per requirements
+    if (!guest) {
+      guest = await db.Guest.create({
+        name: guestName
+        // No email as per requirements
+      });
+    }
+
+    // Update the good with reservation info
+    const good = await db.Goods.findByPk(id);
+    if (!good) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    good.reservedBy = guest.id;
+    good.reservationDate = new Date();
+    await good.save();
+
+    // Reload with guest info
+    await good.reload({
+      include: [{
+        model: db.Guest,
+        as: 'reservedByGuest',
+        attributes: ['id', 'name']
+      }]
+    });
+
+    res.json({
+      id: good.id,
+      name: good.name,
+      reservedByGuest: good.reservedByGuest,
+      reservationDate: good.reservationDate,
+      message: 'Product reserved successfully'
+    });
+  } catch (error) {
+    console.error('Error reserving product:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to reserve product'
+    });
+  }
+});
+
+// API endpoint to unreserve a product
+app.delete('/api/goods/:id/reserve', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const good = await db.Goods.findByPk(id);
+    if (!good) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    good.reservedBy = null;
+    good.reservationDate = null;
+    await good.save();
+
+    res.json({
+      id: good.id,
+      name: good.name,
+      message: 'Product reservation removed successfully'
+    });
+  } catch (error) {
+    console.error('Error unreserving product:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to remove reservation'
+    });
+  }
+});
+
+// API endpoint to get list statistics
+app.get('/api/lists/:token/stats', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const list = await db.List.findOne({ where: { shareToken: token } });
+    if (!list) {
+      return res.status(404).json({ error: 'List not found' });
+    }
+
+    // Get all goods for this list
+    const goods = await db.Goods.findAll({ where: { listId: list.id } });
+
+    const totalItems = goods.length;
+    const reservedItems = goods.filter(good => good.reservedBy !== null).length;
+    const availableItems = totalItems - reservedItems;
+
+    // Calculate total budget (only count items with prices)
+    let totalBudget = 0;
+    goods.forEach(good => {
+      if (good.price) {
+        // Parse price string to number (remove currency symbols, commas, etc.)
+        const priceStr = good.price.toString().replace(/[^\d.,]/g, '');
+        const priceNum = parseFloat(priceStr.replace(',', ''));
+        if (!isNaN(priceNum)) {
+          totalBudget += priceNum;
+        }
+      }
+    });
+
+    // Get reservation counts by guest
+    const reservations = {};
+    for (const good of goods) {
+      if (good.reservedBy) {
+        const guest = await db.Guest.findByPk(good.reservedBy);
+        if (guest) {
+          if (!reservations[guest.name]) {
+            reservations[guest.name] = 0;
+          }
+          reservations[guest.name]++;
+        }
+      }
+    }
+
+    const reservationsArray = Object.entries(reservations).map(([name, count]) => ({
+      guestName: name,
+      reservedCount: count
+    }));
+
+    res.json({
+      totalItems,
+      reservedItems,
+      availableItems,
+      totalBudget: totalBudget.toFixed(2),
+      reservations: reservationsArray
+    });
+  } catch (error) {
+    console.error('Error getting stats:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to retrieve statistics'
+    });
+  }
+});
+
+// Serve the main page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
+
+// Serve wishlist page by share token (numeric)
+app.get('/wishlist/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Find the list by share token
+    const list = await db.List.findOne({
+      where: { shareToken: token },
+      include: [
+        {
+          model: db.Creator,
+          as: 'creator',
+          attributes: ['name']
+        },
+        {
+          model: db.Goods,
+          as: 'goods',
+          include: [{
+            model: db.Guest,
+            as: 'reservedByGuest',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!list) {
+      return res.status(404).send('Wishlist not found');
+    }
+
+    // Pass the list info to the client via template variables or query params
+    // For now, we'll just serve the same HTML but the client will handle the view mode
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  } catch (error) {
+    console.error('Error retrieving wishlist:', error);
+    res.status(500).send('Error retrieving wishlist');
+  }
+});
+
+// Synchronize database models
+async function initializeDatabase() {
+  try {
+    await sequelize.authenticate();
+    console.log('Database connection established successfully.');
+
+    // Sync models with database
+    await sequelize.sync({ alter: false }); // Set to true if you want to update tables
+    console.log('Database synchronized successfully.');
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1); // Exit the process if database connection fails
+  }
+}
+
+// Start server after initializing database
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Supported domains: ${SUPPORTED_DOMAINS.join(', ')}`);
+  });
+}).catch(error => {
+  console.error('Failed to start server due to database error:', error);
 });
 
 module.exports = app;

@@ -37,33 +37,75 @@ more animation but not too much
 simple and intuitive disign 
 
 
---- done ---
-
---- cuurent goal ---
 
 
 
 
+создай базу даных для хранения всей необходимой информации для работы сайта 
+списков (list), инениников (creators), гостей (guest), товаров (goods) 
+на основе postgresql 
 
+dotenv для хранения конфигов в том числе подключения к бд 
+postgresql: 
+host: 127.0.0.1
+port: 5432
+login: evgenijrabcuk
+password: password 
+database: wishlist 
 
---- cuurent goal ---
+создай файл миграйции используя sequelize 
 
+создай документацию по api и как пользоваться серверо в том числе бд 
 
+на стороне клиента: 
+по умочнанию имя имениника "Имениник..." если поле name пустое и placeholder "Имениник..." тоже 
+если вставленна сылка то товар добавляется автоматически 
 
+grid change: 
+create form from left, product list from right side 
+mobile adaptation 
 
-
--- feature features IGNORE --- 
+goods list should be as mini grid too. good image should displaying fully. 
+min height of current-wishlist should be as create-wishlist 
+generate-link-btn at the bottom 
+goods list scrollable if need to
 
 создай сервер на node js express 
 создай базу даных для хранения списков и создателей 
 
 
 пусть ссылка будет доступна все учаснимам. пример http://bloblabla/lists/375983475 
+
+on client size when i hover on any lable i cant see them because it white color make robust them system to prevent it 
+
+
+--- done ---
+
+--- cuurent goal ---
+
+
+when link is pasted then at some moment appering in the bootom of form then moves to flex box right side.
+i dont wanna see it appering in left side 
+
+
+
+--- cuurent goal ---
+
+
+
+-- feature features IGNORE --- 
+
+
+
+
+
 пусть цвет закраски забронированого товара будет зависить от имени. одно и тоже имя = такой же цвет 
 мульти ссылки 
 
 
 ✓ Retrieved: Мобільний телефон Apple iPhone 15 256GB Blue (MTP93RX/A) ✓ Added to wishlist! delete 
+
+add support others providers 
 
 
 -- feature features IGNORE --- 
