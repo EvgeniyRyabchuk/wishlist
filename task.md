@@ -95,9 +95,12 @@ i dont wanna see it appering in left side
 
 -- feature features IGNORE --- 
 
+https://dashboard.render.com/web/srv-d5l7pj24d50c73e1brtg/deploys/dep-d5l7pjq4d50c73e1bsd0
+cd ./server && npm i && npm run start
 
-
-
+disable in view mode 
+                                Generate Shareable Link
+                            
 
 пусть цвет закраски забронированого товара будет зависить от имени. одно и тоже имя = такой же цвет 
 мульти ссылки 

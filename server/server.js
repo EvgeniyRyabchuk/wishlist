@@ -31,177 +31,201 @@ const SUPPORTED_DOMAINS = [
 // Function to extract product info from a URL
 async function extractProductInfo(url) {
   let browser;
-  try {
-    // Validate URL
-    const urlObj = new URL(url);
-    const domain = urlObj.hostname.toLowerCase();
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Product extraction timed out after 20 seconds')), 20000)
+  );
 
-    console.log(`Extracting product info from: ${url} (domain: ${domain})`);
+  // Main extraction logic wrapped in a promise for timeout
+  const extractionPromise = (async () => {
+    try {
+      // Validate URL
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.toLowerCase();
 
-    // Check if domain is supported
-    const isSupported = SUPPORTED_DOMAINS.some(supportedDomain =>
-      domain.includes(supportedDomain.replace('www.', '').split('.')[0])
-    );
+      console.log(`Extracting product info from: ${url} (domain: ${domain})`);
 
-    if (!isSupported) {
-      console.log(`Domain ${domain} is not in the supported list`);
-      throw new Error(`Domain ${domain} is not supported`);
-    }
+      // Check if domain is supported
+      const isSupported = SUPPORTED_DOMAINS.some(supportedDomain =>
+        domain.includes(supportedDomain.replace('www.', '').split('.')[0])
+      );
 
-    // Launch browser with optimized options for speed
-    browser = await puppeteer.launch({
-      headless: true, // Set to false for debugging (change to false to see browser)
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-blink-features=AutomationControlled',
-        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--disable-extensions',
-        '--disable-backgrounding-occluded-windows'
-      ]
-    });
+      if (!isSupported) {
+        console.log(`Domain ${domain} is not in the supported list`);
+        throw new Error(`Domain ${domain} is not supported`);
+      }
 
-    const page = await browser.newPage();
-
-    // Add stealth scripts to avoid detection
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
+      // Launch browser with optimized options for speed
+      browser = await puppeteer.launch({
+        headless: true, // Set to false for debugging (change to false to see browser)
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-blink-features=AutomationControlled',
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          '--disable-background-timer-throttling',
+          '--disable-renderer-backgrounding',
+          '--disable-extensions',
+          '--disable-backgrounding-occluded-windows'
+        ],
+        timeout: 30000, // 30 second timeout for browser launch
+        protocolTimeout: 30000 // 30 second timeout for browser communication
       });
-    });
 
-    // Set a reasonable viewport
-    await page.setViewport({ width: 1280, height: 800 });
+      const page = await browser.newPage();
 
-    // Add extra wait time for dynamic content
-    await page.setDefaultNavigationTimeout(60000); // 60 seconds
-
-    // Navigate to the URL
-    console.log(`Navigating to: ${url}`);
-    await page.goto(url, {
-      waitUntil: 'domcontentloaded', // Changed from networkidle2 to domcontentloaded
-      timeout: 30000 // 30 seconds timeout
-    });
-
-    console.log('Page loaded, waiting for content...');
-
-    // Wait for content to load - increased slightly to ensure images load
-    await page.waitForTimeout(3000);
-
-    // Additional wait for JavaScript to execute and content to load
-    await page.waitForFunction(() => document.readyState === 'complete');
-
-    // Trigger potential lazy-loaded images by scrolling
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight / 2);
-    });
-    await page.waitForTimeout(1000); // Wait for lazy loading
-
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    await page.waitForTimeout(1000); // Additional wait for all images
-
-    // Wait for images to be loaded
-    await page.evaluate(() => {
-      return new Promise((resolve) => {
-        // Check if all images are loaded
-        const images = Array.from(document.images);
-        const unloadedImages = images.filter(img => !img.complete);
-
-        if (unloadedImages.length === 0) {
-          resolve();
-          return;
-        }
-
-        let loadedCount = 0;
-        const checkLoaded = () => {
-          loadedCount++;
-          if (loadedCount === unloadedImages.length) {
-            resolve();
-          }
-        };
-
-        unloadedImages.forEach(img => {
-          img.addEventListener('load', checkLoaded);
-          img.addEventListener('error', checkLoaded);
+      // Add stealth scripts to avoid detection
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined,
         });
-
-        // Resolve anyway after 2 seconds if some images are slow
-        setTimeout(resolve, 2000);
       });
-    });
 
-    // Extract product information based on the site
-    let productInfo = {};
+      // Set a reasonable viewport
+      await page.setViewport({ width: 1280, height: 800 });
 
-    if (domain.includes('rozetka')) {
-      console.log('Using Rozetka extractor');
-      productInfo = await extractRozetkaInfo(page);
-    } else if (domain.includes('prom')) {
-      console.log('Using Prom.ua extractor');
-      productInfo = await extractPromInfo(page);
-    } else if (domain.includes('olx')) {
-      console.log('Using OLX extractor');
-      productInfo = await extractOlxInfo(page);
-    } else if (domain.includes('amazon')) {
-      console.log('Using Amazon extractor');
-      productInfo = await extractAmazonInfo(page);
-    } else if (domain.includes('ebay')) {
-      console.log('Using eBay extractor');
-      productInfo = await extractEbayInfo(page);
-    } else if (domain.includes('bestbuy')) {
-      console.log('Using BestBuy extractor');
-      productInfo = await extractBestBuyInfo(page);
-    } else if (domain.includes('target')) {
-      console.log('Using Target extractor');
-      productInfo = await extractTargetInfo(page);
-    } else if (domain.includes('aliexpress')) {
-      console.log('Using AliExpress extractor');
-      productInfo = await extractAliexpressInfo(page);
-    } else {
-      console.log('Using generic extractor');
-      // Generic extraction using Open Graph tags
-      productInfo = await extractGenericInfo(page);
-    }
+      // Add extra wait time for dynamic content
+      await page.setDefaultNavigationTimeout(60000); // 60 seconds
 
-    console.log('Extracted product info:', productInfo);
+      // Navigate to the URL with shorter timeout
+      console.log(`Navigating to: ${url}`);
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10000 // Reduced to 10 seconds
+      });
 
-    // If we didn't get meaningful data, try generic extraction as fallback
-    if (!productInfo.title || productInfo.title.includes(domain)) {
-      console.log('Falling back to generic extraction');
-      const genericInfo = await extractGenericInfo(page);
-      if (genericInfo.title && !genericInfo.title.includes(domain)) {
-        productInfo = {...productInfo, ...genericInfo};
+      console.log('Page loaded, waiting for content...');
+
+      // Wait for content to load - reduced time
+      await page.waitForTimeout(1000);
+
+      // Additional wait for JavaScript to execute and content to load
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 5000 });
+
+      // Trigger potential lazy-loaded images by scrolling - reduced waits
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight / 2);
+      });
+      await page.waitForTimeout(500); // Reduced wait time
+
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      await page.waitForTimeout(500); // Reduced wait time
+
+      // Wait for images to be loaded with shorter timeout
+      await page.evaluate(() => {
+        return new Promise((resolve) => {
+          // Check if all images are loaded
+          const images = Array.from(document.images);
+          const unloadedImages = images.filter(img => !img.complete);
+
+          if (unloadedImages.length === 0) {
+            resolve();
+            return;
+          }
+
+          let loadedCount = 0;
+          const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === unloadedImages.length) {
+              resolve();
+            }
+          };
+
+          unloadedImages.forEach(img => {
+            img.addEventListener('load', checkLoaded);
+            img.addEventListener('error', checkLoaded);
+          });
+
+          // Resolve anyway after shorter time if some images are slow
+          setTimeout(resolve, 1000); // Reduced from 2 seconds to 1 second
+        });
+      });
+
+      // Extract product information based on the site
+      let productInfo = {};
+
+      if (domain.includes('rozetka')) {
+        console.log('Using Rozetka extractor');
+        productInfo = await extractRozetkaInfo(page);
+      } else if (domain.includes('prom')) {
+        console.log('Using Prom.ua extractor');
+        productInfo = await extractPromInfo(page);
+      } else if (domain.includes('olx')) {
+        console.log('Using OLX extractor');
+        productInfo = await extractOlxInfo(page);
+      } else if (domain.includes('amazon')) {
+        console.log('Using Amazon extractor');
+        productInfo = await extractAmazonInfo(page);
+      } else if (domain.includes('ebay')) {
+        console.log('Using eBay extractor');
+        productInfo = await extractEbayInfo(page);
+      } else if (domain.includes('bestbuy')) {
+        console.log('Using BestBuy extractor');
+        productInfo = await extractBestBuyInfo(page);
+      } else if (domain.includes('target')) {
+        console.log('Using Target extractor');
+        productInfo = await extractTargetInfo(page);
+      } else if (domain.includes('aliexpress')) {
+        console.log('Using AliExpress extractor');
+        productInfo = await extractAliexpressInfo(page);
+      } else {
+        console.log('Using generic extractor');
+        // Generic extraction using Open Graph tags
+        productInfo = await extractGenericInfo(page);
+      }
+
+      console.log('Extracted product info:', productInfo);
+
+      // If we didn't get meaningful data, try generic extraction as fallback
+      if (!productInfo.title || productInfo.title.includes(domain)) {
+        console.log('Falling back to generic extraction');
+        const genericInfo = await extractGenericInfo(page);
+        if (genericInfo.title && !genericInfo.title.includes(domain)) {
+          productInfo = {...productInfo, ...genericInfo};
+        }
+      }
+
+      // If we still don't have meaningful data, try content-based extraction
+      if (!productInfo.title || productInfo.title.includes(domain)) {
+        console.log('Trying content-based extraction');
+        const contentBasedInfo = await extractContentBasedInfo(page);
+        if (contentBasedInfo.title && !contentBasedInfo.title.includes(domain)) {
+          productInfo = {...productInfo, ...contentBasedInfo};
+        }
+      }
+
+      return productInfo;
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (closeError) {
+          console.error('Error closing browser:', closeError);
+        }
       }
     }
+  })();
 
-    // If we still don't have meaningful data, try content-based extraction
-    if (!productInfo.title || productInfo.title.includes(domain)) {
-      console.log('Trying content-based extraction');
-      const contentBasedInfo = await extractContentBasedInfo(page);
-      if (contentBasedInfo.title && !contentBasedInfo.title.includes(domain)) {
-        productInfo = {...productInfo, ...contentBasedInfo};
-      }
-    }
-
-    return productInfo;
+  try {
+    // Race the extraction with a timeout
+    const result = await Promise.race([extractionPromise, timeoutPromise]);
+    return result;
   } catch (error) {
+    if (error.message === 'Product extraction timed out after 20 seconds') {
+      console.error('Product extraction timed out:', error);
+      throw error;
+    }
+
     console.error('Error extracting product info:', error);
     throw error;
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 }
 
@@ -921,10 +945,19 @@ app.post('/api/extract-product-info', async (req, res) => {
     });
   } catch (error) {
     console.error('API Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to extract product information'
-    });
+
+    // Handle timeout errors specifically
+    if (error.message && error.message.includes('timed out')) {
+      res.status(408).json({
+        success: false,
+        error: 'Product extraction timed out. The website took too long to respond.'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to extract product information'
+      });
+    }
   }
 });
 

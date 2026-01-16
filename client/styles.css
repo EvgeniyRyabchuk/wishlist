@@ -12,6 +12,12 @@ body {
     background-color: #f4f4f4;
 }
 
+main {
+
+    display: flex;
+    flex-direction: column;
+}
+
 .container {
     max-width: 800px;
     margin: 0 auto;
@@ -20,6 +26,9 @@ body {
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
     border-radius: 8px;
     margin-top: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 header {
@@ -76,11 +85,32 @@ button:hover {
     background-color: #c0392b;
 }
 
+/* Ensure parent containers allow height calculation */
+#right-section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Override Tailwind classes for current-wishlist to have 100% height */
+#current-wishlist {
+    height: 100% !important;
+    min-height: unset !important;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
 #current-wishlist ul,
 #display-items ul {
     list-style-type: none;
     margin: 15px 0;
     padding: 0;
+}
+
+#wishlist-items-grid {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .wishlist-item {

@@ -16,14 +16,16 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        primary: '#0F172A',
-                        accent: '#38BDF8',
-                        success: '#4ADE80',
-                        background: '#F8FAFC',
-                        card: '#FFFFFF',
-                        border: '#CBD5E1',
-                        glass: 'rgba(255, 255, 255, 0.1)',
-                        'glass-border': 'rgba(255, 255, 255, 0.2)',
+                        primary: '#2D3748',           // Dark slate
+                        secondary: '#4A5568',         // Gray
+                        accent: '#3182CE',            // Blue
+                        success: '#38A169',           // Green
+                        warning: '#E53E3E',           // Red
+                        background: '#EDF2F7',        // Light gray background
+                        card: '#FFFFFF',              // White cards
+                        border: '#E2E8F0',            // Light gray border
+                        glass: 'rgba(255, 255, 255, 0.9)', // Nearly opaque white
+                        'glass-border': 'rgba(226, 232, 240, 0.9)', // Light gray border
                     }
                 }
             }
@@ -34,55 +36,80 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #F8FAFC;
+            background-color: #EDF2F7;
             min-height: 100vh;
         }
 
         .glass-card {
             background: #FFFFFF;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
             border-radius: 12px;
-            border: 1px solid #CBD5E1;
+            border: 1px solid #E2E8F0;
         }
 
         .glass-button {
             transition: all 0.2s ease;
-            background: #38BDF8;
-            color: #0F172A;
+            background: #3182CE;
+            color: #FFFFFF;
             border: none;
             border-radius: 8px;
         }
 
         .glass-button:hover {
-            background: #0EA5E9;
+            background: #2C5282;
             transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(49, 130, 206, 0.2);
         }
 
         .secondary-button {
-            background: #F1F5F9;
-            color: #0F172A;
-            border: 1px solid #CBD5E1;
+            background: #F7FAFC;
+            color: #2D3748;
+            border: 1px solid #E2E8F0;
         }
 
         .secondary-button:hover {
-            background: #E2E8F0;
+            background: #EBF8FF;
+            border-color: #BEE3F8;
         }
 
         .wishlist-item {
             transition: all 0.3s ease;
-            border: 1px solid #CBD5E1;
+            border: 1px solid #E2E8F0;
             cursor: pointer;
+            background: #FFFFFF;
         }
 
         .wishlist-item:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #CBD5E0;
+        }
+
+        /* Ensure hover effect works in display view as well */
+        #display-items-grid .wishlist-item {
+            transition: all 0.3s ease;
+            border: 1px solid #E2E8F0;
+            cursor: pointer;
+            background: #FFFFFF;
+        }
+
+        #display-items-grid .wishlist-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #CBD5E0;
         }
 
         .booked-item {
-            background: #4ADE80 !important;
-            border-color: #4ADE80 !important;
-            color: white;
+            background: #F0FFF4 !important;
+            border-color: #9AE6B4 !important;
+            color: #22543D;
+        }
+
+        /* Ensure booked items display correctly in display view */
+        #display-items-grid .booked-item {
+            background: #F0FFF4 !important;
+            border-color: #9AE6B4 !important;
+            color: #22543D;
         }
 
         .animate-pulse {
@@ -111,36 +138,79 @@
             transform: translateY(-1px);
         }
 
-        /* Color overrides for specific elements */
-        .text-gray-800 { color: #0F172A !important; }
-        .text-gray-600 { color: #475569 !important; }
+        /* Updated color overrides for specific elements */
+        .text-gray-800 { color: #2D3748 !important; }
+        .text-gray-600 { color: #4A5568 !important; }
         .text-white { color: #FFFFFF !important; }
-        .text-indigo-600 { color: #38BDF8 !important; }
+        .text-indigo-600 { color: #3182CE !important; }
         .bg-white { background-color: #FFFFFF !important; }
-        .border-gray-300 { border-color: #CBD5E1 !important; }
-        .focus\:ring-indigo-500:focus { --tw-ring-color: #38BDF8 !important; }
-        .hover\:bg-indigo-600:hover { background-color: #0EA5E9 !important; }
+        .border-gray-300 { border-color: #E2E8F0 !important; }
+        .focus\:ring-indigo-500:focus { --tw-ring-color: #3182CE !important; }
+        .hover\:bg-indigo-600:hover { background-color: #2C5282 !important; }
 
         /* Robust label system - ensures visibility on any background */
-        .label-on-light-bg { color: #475569 !important; } /* Gray text for light backgrounds */
-        .label-on-dark-bg { color: #CBD5E1 !important; } /* Light gray text for dark backgrounds */
+        .label-on-light-bg { color: #4A5568 !important; } /* Gray text for light backgrounds */
+        .label-on-dark-bg { color: #E2E8F0 !important; } /* Light gray text for dark backgrounds */
         .label-on-colored-bg { color: #FFFFFF !important; } /* White text for colored backgrounds */
         .label-contrast {
-            color: #0F172A !important;
-            text-shadow: 0 0 1px rgba(255, 255, 255, 0.5), 0 0 2px rgba(255, 255, 255, 0.3) !important;
+            color: #2D3748 !important;
         }
 
         /* Specific label styles for different contexts */
         .wishlist-item .label-text {
-            color: #475569 !important;
+            color: #4A5568 !important;
             transition: color 0.2s ease;
         }
         .wishlist-item:hover .label-text {
-            color: #0F172A !important;
+            color: #2D3748 !important;
         }
         .booked-item .label-text {
-            color: #0F172A !important;
+            color: #38A169 !important;
             font-weight: 500;
+        }
+
+        /* Override Tailwind classes for current-wishlist to take full available height (only in creation mode) */
+        #current-wishlist {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+       
+        }
+
+
+        #create-wishlist:not(.hidden) ~ #right-section #wishlist-items-grid {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* For display mode, use appropriate styling */
+        #display-wishlist:not(.hidden) {
+            display: block !important;
+        }
+
+        #display-wishlist:not(.hidden) #display-items-grid {
+            min-height: 300px;
+            margin-top: 20px;
+        }
+
+        /* When create-wishlist is hidden, make right-section take full width */
+        #create-wishlist[style*="display: none;"] ~ #right-section,
+        #create-wishlist.hidden ~ #right-section {
+            width: 100%;
+        }
+
+        /* Ensure proper styling for items in display view */
+        #display-wishlist .wishlist-item {
+            transition: all 0.3s ease;
+            border: 1px solid #E2E8F0 !important;
+            cursor: default; /* Items in display view shouldn't have pointer cursor */
+        }
+
+        #display-wishlist .wishlist-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #CBD5E0;
         }
     </style>
 </head>
@@ -154,6 +224,15 @@
         </header>
 
         <main class="space-y-8">
+
+        <!-- Wishlist Display Area -->
+            <section id="display-wishlist" class="hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">Wishlist of: <span id="owner-name" class="text-indigo-600"></span></h2>
+                <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </section>
+
+
+
             <!-- Create Wishlist Section - Left Side -->
             <div class="flex flex-col lg:flex-row gap-8">
                 <!-- Left Side - Form -->
@@ -216,7 +295,7 @@
                 <!-- Right Side - Current Wishlist + Display Section -->
                 <section id="right-section" class="lg:w-2/3 space-y-8">
                     <!-- Current Wishlist Section -->
-                    <section id="current-wishlist" class="glass-card p-6 min-h-[500px] flex flex-col">
+                    <section id="current-wishlist" class="glass-card p-6 flex flex-col">
                         <h3 class="text-xl font-semibold text-white mb-4">Your Current Wishlist</h3>
                         <div id="wishlist-items-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 flex-grow overflow-y-auto max-h-96 pr-2"></div>
                         <div class="mt-6">
@@ -236,15 +315,35 @@
                         </div>
                     </section>
 
-                    <!-- Wishlist Display Area -->
-                    <section id="display-wishlist" class="hidden">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">Wishlist of: <span id="owner-name" class="text-indigo-600"></span></h2>
-                        <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                    </section>
+                  
                 </section>
             </div>
+        </main>
 
-            <!-- View Wishlist Section - Bottom -->
+        <!-- Statistics Section -->
+        <section id="statistics-section" class="glass-card p-6 mt-8 fade-in">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Statistics</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
+                    <div class="text-xl font-bold text-gray-800" id="total-budget">$0.00</div>
+                    <div class="text-gray-600 text-sm label-contrast">Total Budget</div>
+                </div>
+                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
+                    <div class="text-xl font-bold text-gray-800" id="total-items">0</div>
+                    <div class="text-gray-600 text-sm label-contrast">Total Items</div>
+                </div>
+                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
+                    <div class="text-xl font-bold text-gray-800" id="booked-items">0</div>
+                    <div class="text-gray-600 text-sm label-contrast">Booked Items</div>
+                </div>
+                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
+                    <div class="text-xl font-bold text-gray-800" id="available-items">0</div>
+                    <div class="text-gray-600 text-sm label-contrast">Available Items</div>
+                </div>
+            </div>
+        </section>
+
+                    <!-- View Wishlist Section - Top -->
             <section id="view-wishlist" class="glass-card p-6 fade-in">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,30 +365,6 @@
                     </div>
                 </div>
             </section>
-        </main>
-
-        <!-- Statistics Section -->
-        <section id="statistics-section" class="glass-card p-6 mt-8 fade-in">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Statistics</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
-                    <div class="text-xl font-bold text-gray-800" id="total-budget">$0.00</div>
-                    <div class="text-gray-600 text-sm label-contrast">Total Budget</div>
-                </div>
-                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
-                    <div class="text-xl font-bold text-gray-800" id="total-items">0</div>
-                    <div class="text-gray-600 text-sm label-contrast">Total Items</div>
-                </div>
-                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
-                    <div class="text-xl font-bold text-gray-800" id="booked-items">0</div>
-                    <div class="text-gray-600 text-sm label-contrast">Booked Items</div>
-                </div>
-                <div class="glass-card p-4 text-center bg-white border border-gray-200 rounded-lg">
-                    <div class="text-xl font-bold text-gray-800" id="available-items">0</div>
-                    <div class="text-gray-600 text-sm label-contrast">Available Items</div>
-                </div>
-            </div>
-        </section>
 
         <!-- Modal for Booking Items -->
         <div id="booking-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
