@@ -65,7 +65,7 @@ async function extractProductInfo(url) {
       }
 
       // Launch browser with optimized options for speed
-      browser = await puppeteer.launch({
+      const browserOptions = {
         headless: true, // Set to false for debugging (change to false to see browser)
         args: [
           '--no-sandbox',
@@ -86,7 +86,15 @@ async function extractProductInfo(url) {
         ],
         timeout: 30000, // 30 second timeout for browser launch
         protocolTimeout: 30000 // 30 second timeout for browser communication
-      });
+      };
+
+      // For Render.com, use executable path if available
+      if (process.env.RENDER) {
+        browserOptions.executablePath = '/usr/bin/chromium-browser';
+        browserOptions.args.push('--disable-dev-shm-usage');
+      }
+
+      browser = await puppeteer.launch(browserOptions);
 
       const page = await browser.newPage();
 

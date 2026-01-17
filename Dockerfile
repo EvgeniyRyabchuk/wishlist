@@ -16,6 +16,9 @@ RUN apk add --no-cache \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
+# Set environment variables for Render.com
+ENV RENDER=true
+
 # Set the working directory
 WORKDIR /app
 
