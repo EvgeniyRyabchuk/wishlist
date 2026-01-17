@@ -79,56 +79,47 @@ async function extractProductInfo(url) {
         protocolTimeout: 30000 // 30 second timeout for browser communication
       };
 
-      // For Render.com/Docker, use executable path if available
+      // Try to find an available browser executable
+      const fs = require('fs');
+
+      // Different paths depending on the environment
+      const executablePaths = [
+        // Render.com specific paths
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/local/bin/chromium-browser',
+        '/usr/local/bin/chromium',
+        // Standard Linux paths
+        '/opt/google/chrome/chrome',
+        '/opt/chromium/chromium',
+        // Windows paths (for local development)
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        // macOS paths (for local development)
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      ];
+
+      for (const path of executablePaths) {
+        if (fs.existsSync(path)) {
+          PUPPETEER_CONFIG.executablePath = path;
+          break;
+        }
+      }
+
+      // Set userDataDir to avoid cache issues in Render environment
       if (process.env.RENDER || process.env.DOCKER_CONTAINER) {
-        // Different paths depending on the environment
-        const fs = require('fs');
-        const executablePaths = [
-          '/usr/bin/google-chrome',
-          '/usr/bin/chromium-browser',
-          '/usr/bin/chromium',
-          '/usr/local/bin/chromium-browser',
-          '/usr/local/bin/chromium'
-        ];
-
-        for (const path of executablePaths) {
-          if (fs.existsSync(path)) {
-            PUPPETEER_CONFIG.executablePath = path;
-            break;
-          }
-        }
-
-        // Set userDataDir to avoid cache issues in Render environment
         PUPPETEER_CONFIG.userDataDir = '/tmp/chrome-user-data';
-      } else {
-        // For local development, try to find a Chrome executable
-        // This is just a fallback - in practice, you might want to install Chrome locally
-        const fs = require('fs');
-        const localExecutablePaths = [
-          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
-          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe', // Windows (x86)
-          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
-          '/usr/bin/google-chrome', // Linux
-          '/usr/bin/chromium-browser' // Linux (alternative)
-        ];
-
-        for (const path of localExecutablePaths) {
-          if (fs.existsSync(path)) {
-            PUPPETEER_CONFIG.executablePath = path;
-            break;
-          }
-        }
       }
 
       // Add user agent to avoid detection
       PUPPETEER_CONFIG.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
-      // Ensure executablePath is set for puppeteer-core - this is critical
+      // If no executable path is found, Puppeteer will try to use default paths
+      // This might work if puppeteer downloaded a browser during install (though not with puppeteer-core)
       if (!PUPPETEER_CONFIG.executablePath) {
-        // As a last resort, try to use the system's default Chromium path for Render
-        // This is especially important for Render.com deployments
-        // First try Google Chrome (which we're installing in the build command)
-        PUPPETEER_CONFIG.executablePath = '/usr/bin/google-chrome';
+        console.warn('Warning: No Chrome/Chromium executable found. Attempting to launch without explicit executable path.');
       }
 
       browser = await puppeteer.launch(PUPPETEER_CONFIG);
