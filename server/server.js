@@ -84,6 +84,7 @@ async function extractProductInfo(url) {
         // Different paths depending on the environment
         const fs = require('fs');
         const executablePaths = [
+          '/usr/bin/google-chrome',
           '/usr/bin/chromium-browser',
           '/usr/bin/chromium',
           '/usr/local/bin/chromium-browser',
@@ -126,7 +127,8 @@ async function extractProductInfo(url) {
       if (!PUPPETEER_CONFIG.executablePath) {
         // As a last resort, try to use the system's default Chromium path for Render
         // This is especially important for Render.com deployments
-        PUPPETEER_CONFIG.executablePath = '/usr/bin/chromium-browser';
+        // First try Google Chrome (which we're installing in the build command)
+        PUPPETEER_CONFIG.executablePath = '/usr/bin/google-chrome';
       }
 
       browser = await puppeteer.launch(PUPPETEER_CONFIG);
