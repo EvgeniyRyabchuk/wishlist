@@ -99,10 +99,35 @@ async function extractProductInfo(url) {
 
         // Set userDataDir to avoid cache issues in Render environment
         PUPPETEER_CONFIG.userDataDir = '/tmp/chrome-user-data';
+      } else {
+        // For local development, try to find a Chrome executable
+        // This is just a fallback - in practice, you might want to install Chrome locally
+        const fs = require('fs');
+        const localExecutablePaths = [
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
+          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe', // Windows (x86)
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
+          '/usr/bin/google-chrome', // Linux
+          '/usr/bin/chromium-browser' // Linux (alternative)
+        ];
+
+        for (const path of localExecutablePaths) {
+          if (fs.existsSync(path)) {
+            PUPPETEER_CONFIG.executablePath = path;
+            break;
+          }
+        }
       }
 
       // Add user agent to avoid detection
       PUPPETEER_CONFIG.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+      // Ensure executablePath is set for puppeteer-core
+      if (!PUPPETEER_CONFIG.executablePath) {
+        // If no executable path is found, try to use the default one (this might fail)
+        // But at least we tried to set it
+        console.warn('Warning: No Chrome/Chromium executable found. This may cause issues.');
+      }
 
       browser = await puppeteer.launch(PUPPETEER_CONFIG);
 
