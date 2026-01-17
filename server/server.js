@@ -1,5 +1,5 @@
 const express = require('express');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config(); // Load environment variables
@@ -65,7 +65,7 @@ async function extractProductInfo(url) {
       }
 
       // Puppeteer configuration for Render.com
-      const PUPPETEER_CONFIG = {
+      const browserOptions = {
         headless: 'new', // Use new headless mode
         args: [
           '--no-sandbox',
@@ -79,50 +79,15 @@ async function extractProductInfo(url) {
         protocolTimeout: 30000 // 30 second timeout for browser communication
       };
 
-      // Try to find an available browser executable
-      const fs = require('fs');
-
-      // Different paths depending on the environment
-      const executablePaths = [
-        // Render.com specific paths
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/google-chrome',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium',
-        '/usr/local/bin/chromium-browser',
-        '/usr/local/bin/chromium',
-        // Standard Linux paths
-        '/opt/google/chrome/chrome',
-        '/opt/chromium/chromium',
-        // Windows paths (for local development)
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        // macOS paths (for local development)
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      ];
-
-      for (const path of executablePaths) {
-        if (fs.existsSync(path)) {
-          PUPPETEER_CONFIG.executablePath = path;
-          break;
-        }
-      }
-
       // Set userDataDir to avoid cache issues in Render environment
       if (process.env.RENDER || process.env.DOCKER_CONTAINER) {
-        PUPPETEER_CONFIG.userDataDir = '/tmp/chrome-user-data';
+        browserOptions.userDataDir = '/tmp/chrome-user-data';
       }
 
       // Add user agent to avoid detection
-      PUPPETEER_CONFIG.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      browserOptions.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
-      // If no executable path is found, Puppeteer will try to use default paths
-      // This might work if puppeteer downloaded a browser during install (though not with puppeteer-core)
-      if (!PUPPETEER_CONFIG.executablePath) {
-        console.warn('Warning: No Chrome/Chromium executable found. Attempting to launch without explicit executable path.');
-      }
-
-      browser = await puppeteer.launch(PUPPETEER_CONFIG);
+      browser = await puppeteer.launch(browserOptions);
 
       const page = await browser.newPage();
 
