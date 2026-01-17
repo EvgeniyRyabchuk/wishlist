@@ -67,11 +67,7 @@ async function extractProductInfo(url) {
       // Launch browser with optimized options for speed
       const browserOptions = {
         headless: true, // Set to false for debugging
-      };
-
-      // For Render.com, use specific flags if needed
-      if (process.env.RENDER || process.env.DOCKER_CONTAINER) {
-        browserOptions.args = [
+        args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
@@ -86,8 +82,8 @@ async function extractProductInfo(url) {
           '--disable-renderer-backgrounding',
           '--disable-extensions',
           '--disable-backgrounding-occluded-windows'
-        ];
-      }
+        ]
+      };
 
       browser = await chromium.launch(browserOptions);
 
