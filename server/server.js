@@ -122,11 +122,11 @@ async function extractProductInfo(url) {
       // Add user agent to avoid detection
       PUPPETEER_CONFIG.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
-      // Ensure executablePath is set for puppeteer-core
+      // Ensure executablePath is set for puppeteer-core - this is critical
       if (!PUPPETEER_CONFIG.executablePath) {
-        // If no executable path is found, try to use the default one (this might fail)
-        // But at least we tried to set it
-        console.warn('Warning: No Chrome/Chromium executable found. This may cause issues.');
+        // As a last resort, try to use the system's default Chromium path for Render
+        // This is especially important for Render.com deployments
+        PUPPETEER_CONFIG.executablePath = '/usr/bin/chromium-browser';
       }
 
       browser = await puppeteer.launch(PUPPETEER_CONFIG);
