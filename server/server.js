@@ -7,11 +7,21 @@ require('dotenv').config(); // Load environment variables
 const { sequelize } = require('./database/db'); // Import database connection
 const db = require('./models'); // Import all models
 
+// Log environment for debugging
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+
 const app = express();
 const PORT = process.env.PORT || 3000; // Changed back to port 3000
 
 // Middleware
 app.use(cors());
+
+// In production, trust proxies for correct IP addresses and HTTPS
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../client'))); // Serve static files from the client directory
@@ -1298,12 +1308,29 @@ async function initializeDatabase() {
 
 // Start server after initializing database
 initializeDatabase().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Supported domains: ${SUPPORTED_DOMAINS.join(', ')}`);
+  });
+
+  // Graceful shutdown handling
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Process terminated');
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    server.close(() => {
+      console.log('Process terminated');
+    });
   });
 }).catch(error => {
   console.error('Failed to start server due to database error:', error);
+  process.exit(1);
 });
 
 module.exports = app;

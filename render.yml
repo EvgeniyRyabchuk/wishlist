@@ -1,0 +1,36 @@
+# Render Deploy Configuration File
+#
+# For detailed documentation on how to configure your services, visit:
+# https://render.com/docs/deploy-an-existing-project
+
+services:
+- type: web
+  name: wishlist-platform
+  runtime: node
+  plan: free
+  region: oregon  # Available regions: oregon, ohio, frankfurt, singapore
+  
+  build:
+    # Commands to run during the build phase
+    # This runs after your code is cloned but before the service starts
+    - apt-get update && apt-get install -y wget gnupg
+    - wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+    - sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+    - apt-get update
+    - apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 ca-certificates curl supervisor
+    - npm install
+
+  startCommand: npm start
+  
+  envVars:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    sync: false  # Render will set this automatically
+
+databases:
+- name: wishlist-db
+  databaseName: wishlist
+  user: wishlist_user
+  plan: free
+  region: oregon
