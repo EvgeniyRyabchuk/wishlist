@@ -64,25 +64,16 @@ async function extractProductInfo(url) {
         throw new Error(`Domain ${domain} is not supported`);
       }
 
-      // Launch browser with optimized options for speed
-      const browserOptions = {
-        headless: true, // Set to false for debugging (change to false to see browser)
+      // Puppeteer configuration for Render.com
+      const PUPPETEER_CONFIG = {
+        headless: 'new', // Use new headless mode
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
           '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-blink-features=AutomationControlled',
-          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          '--disable-background-timer-throttling',
-          '--disable-renderer-backgrounding',
-          '--disable-extensions',
-          '--disable-backgrounding-occluded-windows'
+          '--no-zygote',
+          '--single-process' // Required for Render.com
         ],
         timeout: 30000, // 30 second timeout for browser launch
         protocolTimeout: 30000 // 30 second timeout for browser communication
@@ -90,11 +81,13 @@ async function extractProductInfo(url) {
 
       // For Render.com, use executable path if available
       if (process.env.RENDER) {
-        browserOptions.executablePath = '/usr/bin/chromium-browser';
-        browserOptions.args.push('--disable-dev-shm-usage');
+        PUPPETEER_CONFIG.executablePath = '/usr/bin/chromium-browser';
       }
 
-      browser = await puppeteer.launch(browserOptions);
+      // Add user agent to avoid detection
+      PUPPETEER_CONFIG.args.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+      browser = await puppeteer.launch(PUPPETEER_CONFIG);
 
       const page = await browser.newPage();
 
