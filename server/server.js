@@ -79,9 +79,23 @@ async function extractProductInfo(url) {
         protocolTimeout: 30000 // 30 second timeout for browser communication
       };
 
-      // For Render.com, use executable path if available
-      if (process.env.RENDER) {
-        PUPPETEER_CONFIG.executablePath = '/usr/bin/chromium-browser';
+      // For Render.com/Docker, use executable path if available
+      if (process.env.RENDER || process.env.DOCKER_CONTAINER) {
+        // Different paths depending on the environment
+        const fs = require('fs');
+        const executablePaths = [
+          '/usr/bin/chromium-browser',
+          '/usr/bin/chromium',
+          '/usr/local/bin/chromium-browser',
+          '/usr/local/bin/chromium'
+        ];
+
+        for (const path of executablePaths) {
+          if (fs.existsSync(path)) {
+            PUPPETEER_CONFIG.executablePath = path;
+            break;
+          }
+        }
       }
 
       // Add user agent to avoid detection
