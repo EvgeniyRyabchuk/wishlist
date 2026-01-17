@@ -113,7 +113,9 @@ async function extractProductInfo(url) {
       await page.waitForTimeout(1000);
 
       // Additional wait for JavaScript to execute and content to load
-      await page.waitForLoadState('networkidle', { timeout: 5000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
+      // Wait a bit more for dynamic content to load
+      await page.waitForTimeout(2000);
 
       // Trigger potential lazy-loaded images by scrolling - reduced waits
       await page.evaluate(() => {
