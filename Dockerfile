@@ -18,6 +18,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 
 # Set environment variables for Render.com
 ENV RENDER=true
+ENV DOCKER_CONTAINER=true
 
 # Set the working directory
 WORKDIR /app

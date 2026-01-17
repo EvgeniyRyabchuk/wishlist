@@ -1,5 +1,5 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config(); // Load environment variables
@@ -96,6 +96,9 @@ async function extractProductInfo(url) {
             break;
           }
         }
+
+        // Set userDataDir to avoid cache issues in Render environment
+        PUPPETEER_CONFIG.userDataDir = '/tmp/chrome-user-data';
       }
 
       // Add user agent to avoid detection
