@@ -5,7 +5,8 @@ services:
   region: frankfurt  # Choose your preferred region
   plan: free
   buildCommand: "npm install"
-  startCommand: "npm start"
+  # Run migrations before starting the server
+  startCommand: "npx sequelize db:migrate && npm start"
   healthCheckPath: "/"
   envVars:
   - key: NODE_ENV

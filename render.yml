@@ -20,7 +20,7 @@ services:
     - apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 ca-certificates curl supervisor
     - npm install
 
-  startCommand: npm start
+  startCommand: "npx sequelize db:migrate && npm start"
   
   envVars:
   - key: NODE_ENV
