@@ -29,8 +29,8 @@ COPY server/package*.json ./
 # Install dependencies
 RUN npm ci --only=production
 
-# Copy the rest of the application code
-COPY server/ ./
+# Install sequelize-cli as a separate step to run migrations
+RUN npm install --no-save sequelize-cli
 
 # Create a non-root user and switch to it
 RUN addgroup -g 1001 -S nodejs
@@ -40,5 +40,5 @@ USER nextjs
 # Expose the port
 EXPOSE 10000
 
-# Start the application
-CMD ["npm", "start"]
+# Run migrations and start the application
+CMD ["sh", "-c", "npx sequelize db:migrate && npm start"]

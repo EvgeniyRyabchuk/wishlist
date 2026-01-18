@@ -14,7 +14,7 @@ services:
     npm install
     npx playwright install chromium
   # Run migrations before starting the server
-  startCommand: "npx sequelize db:migrate && npm start"
+  startCommand: "npm start"
   healthCheckPath: "/"
   envVars:
   - key: NODE_ENV
