@@ -1,5 +1,3 @@
-
---- done --- 
 я хочу создать платформу для создания списка желаний на день рождения 
 концепция такова что имениник создает список своих хотелок и присылает ссылку на этот список остальным людям, остальные люди могу просмотреть этот список по ссылки и забронировать за собой тот товар который посчитают нужным
 товар который забронирован выделяеться другим цветом человека который выбрал (перед бронированием человека спрашивают его имя в модальном окне но только раз, дольше имя береться из localstorage)
@@ -35,11 +33,6 @@
 moderm ui/ux, little bit like new iphone iso style with glass look 
 more animation but not too much 
 simple and intuitive disign 
-
-
-
-
-
 
 создай базу даных для хранения всей необходимой информации для работы сайта 
 списков (list), инениников (creators), гостей (guest), товаров (goods) 
@@ -78,43 +71,3 @@ goods list scrollable if need to
 
 on client size when i hover on any lable i cant see them because it white color make robust them system to prevent it 
 
-
---- done ---
-
---- cuurent goal ---
-
-
-when link is pasted then at some moment appering in the bootom of form then moves to flex box right side.
-i dont wanna see it appering in left side 
-
-
-
---- cuurent goal ---
-
-
-
--- feature features IGNORE --- 
-
-
-https://dashboard.render.com/web/srv-d5l7pj24d50c73e1brtg/deploys/dep-d5l7pjq4d50c73e1bsd0
-
-cd ./server && npm i && npm run start
-
-cd ./server && echo DB_HOST=localhost> .env && echo DB_USER=admin>> .env && echo DB_PASSWORD=password>> .env && echo DB_NAME=wishlist>> .env && echo DB_PORT=5432>> .env && npm install && npm run start
-disable in view mode 
-                                Generate Shareable Link
-
-
-                  
-                            
-
-пусть цвет закраски забронированого товара будет зависить от имени. одно и тоже имя = такой же цвет 
-мульти ссылки 
-
-
-✓ Retrieved: Мобільний телефон Apple iPhone 15 256GB Blue (MTP93RX/A) ✓ Added to wishlist! delete 
-
-add support others providers 
-
-
--- feature features IGNORE --- 
