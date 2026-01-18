@@ -47,7 +47,7 @@ RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 
 # Change ownership of app directory to nextjs user
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app && chmod -R 755 /app
 
 USER nextjs
 
