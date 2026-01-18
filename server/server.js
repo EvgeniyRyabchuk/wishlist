@@ -24,7 +24,7 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../client'))); // Serve static files from the client directory
+app.use(express.static(path.join(__dirname, './client'))); // Serve static files from the client directory
 
 // Supported domains
 const SUPPORTED_DOMAINS = [
@@ -1518,7 +1518,7 @@ app.get('/api/lists/:token/stats', async (req, res) => {
 
 // Serve the main page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
+  res.sendFile(path.join(__dirname, './client/index.html'));
 });
 
 // Serve wishlist page by share token (numeric)
@@ -1553,7 +1553,7 @@ app.get('/wishlist/:token', async (req, res) => {
 
     // Pass the list info to the client via template variables or query params
     // For now, we'll just serve the same HTML but the client will handle the view mode
-    res.sendFile(path.join(__dirname, '../client/index.html'));
+    res.sendFile(path.join(__dirname, './client/index.html'));
   } catch (error) {
     console.error('Error retrieving wishlist:', error);
     res.status(500).send('Error retrieving wishlist');
