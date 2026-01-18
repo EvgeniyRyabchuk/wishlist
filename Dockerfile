@@ -26,7 +26,13 @@ WORKDIR /app
 # Copy package.json and package-lock.json (if available)
 COPY server/package*.json ./
 
-# Install dependencies
+# Install all dependencies (including dev dependencies for postinstall script)
+RUN npm ci
+
+# Copy the rest of the application code
+COPY server/ ./
+
+# Install only production dependencies for the final image (removing dev dependencies)
 RUN npm ci --only=production
 
 # Install sequelize-cli as a separate step to run migrations
