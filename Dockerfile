@@ -26,6 +26,9 @@ WORKDIR /app
 # Copy package.json and package-lock.json (if available)
 COPY server/package*.json ./
 
+# Copy config directory to allow postinstall script to run migrations
+COPY server/config ./config/
+
 # Install all dependencies (including dev dependencies for postinstall script)
 RUN npm ci
 
