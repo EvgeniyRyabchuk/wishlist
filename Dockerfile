@@ -26,6 +26,7 @@ RUN npm install --production
 
 # Copy app source
 COPY server/ ./
+COPY client/ ./client/
 
 # Expose Render port
 EXPOSE 10000
