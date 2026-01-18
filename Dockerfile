@@ -26,10 +26,10 @@ WORKDIR /app
 # Copy package.json and package-lock.json (if available)
 COPY server/package*.json ./
 
-# Copy config directory to allow postinstall script to run migrations
+# Copy config directory to allow migrations to run when container starts
 COPY server/config ./config/
 
-# Install all dependencies (including dev dependencies for postinstall script)
+# Install all dependencies (including dev dependencies)
 RUN npm ci
 
 # Copy the rest of the application code

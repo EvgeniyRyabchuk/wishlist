@@ -8,8 +8,7 @@
     "dev": "nodemon server.js",
     "sequelize": "sequelize",
     "migrate": "sequelize db:migrate",
-    "migrate:undo": "sequelize db:migrate:undo",
-    "postinstall": "npm run migrate"
+    "migrate:undo": "sequelize db:migrate:undo"
   },
   "dependencies": {
     "express": "^4.18.2",
