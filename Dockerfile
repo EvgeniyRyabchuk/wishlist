@@ -31,5 +31,7 @@ COPY client/ ./client/
 # Expose Render port
 EXPOSE 10000
 
+WORKDIR /app/server
+
 # Start app (without migrations in CMD)
 CMD ["node", "server.js"]
