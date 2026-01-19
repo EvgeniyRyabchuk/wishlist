@@ -19,13 +19,13 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /app
 
 # Copy package.json and package-lock.json (if available)
-COPY server/package*.json ./
+COPY server/package*.json ./server/
 
 # Install dependencies (single install!)
 RUN npm install --production
 
 # Copy app source
-COPY server/ ./
+COPY server/ ./server/
 COPY client/ ./client/
 
 # Expose Render port
