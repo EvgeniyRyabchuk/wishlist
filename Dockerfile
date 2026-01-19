@@ -18,8 +18,8 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Set the working directory
 WORKDIR /app/server
 
-# Copy package.json and package-lock.json (if available)
-COPY ./server/package*.json ./
+# # Copy package.json and package-lock.json (if available)
+# COPY ./server/package*.json ./
 
 # Install dependencies (single install!)
 RUN npm install --production
