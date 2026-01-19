@@ -1,4 +1,3 @@
-# Use the official Node.js runtime as the base image
 FROM node:18-alpine
 
 # Install Chromium for Puppeteer
@@ -10,28 +9,25 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont
 
-# Set environment variables for Render.com
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Set the working directory
-WORKDIR /app
-
-# Copy package.json and package-lock.json (if available)
-COPY server/package*.json ./server/
-
-# Install dependencies (single install!)
-RUN npm install --production
-
-# Copy app source
-COPY server/ ./server/
-COPY client/ ./client/
-
-# Expose Render port
-EXPOSE 10000
-
+# 👇 MOVE INTO SERVER DIR EARLY
 WORKDIR /app/server
 
-# Start app (without migrations in CMD)
+# Copy only server package files
+COPY server/package*.json ./
+
+# Install deps (npm now sees package.json)
+RUN npm install --omit=dev
+
+# Copy server source
+COPY server/ ./
+
+# (Optional) client if your server serves it
+COPY client/ ../client/
+
+EXPOSE 10000
+
 CMD ["node", "server.js"]
