@@ -185,7 +185,7 @@ async function extractProductInfo(url) {
       // Navigate to the URL with increased timeout
       console.log(`Navigating to: ${url}`);
       await page.goto(url, {
-        waitUntil: 'networkidle0', // Wait until network is idle (Puppeteer uses networkidle0/networkidle2)
+        waitUntil: 'domcontentloaded', // Wait until DOM content is loaded (more compatible)
         timeout: 30000 // Increased to 30 seconds
       });
 
@@ -196,7 +196,7 @@ async function extractProductInfo(url) {
       await page.waitForTimeout(waitTime);
 
       // Additional wait for JavaScript to execute and content to load
-      await page.waitForNetworkIdle({ timeout: 20000 }); // Wait for network idle in production
+      await page.waitForTimeout(5000); // Wait for content to load
       // Wait a bit more for dynamic content to load
       const additionalWaitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000; // 5s in prod, 2s in dev
       await page.waitForTimeout(additionalWaitTime);
