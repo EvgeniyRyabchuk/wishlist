@@ -73,11 +73,8 @@ app.get('/playwright-status', async (req, res) => {
         // Use system Chrome on Render/Linux
         const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
 
-        // Check if running on Render or similar environment where system Chrome is available
-        // Only set executablePath if we're confident it exists
-        if (process.env.RENDER || process.env.CI) {
-          browserOptions.executablePath = systemChromePath;
-        }
+        // Always use system Chrome in production on Render
+        browserOptions.executablePath = systemChromePath;
     }
 
     const browser = await chromium.launch(browserOptions);
@@ -170,11 +167,8 @@ async function extractProductInfo(url) {
         // Use system Chrome on Render/Linux
         const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
 
-        // Check if running on Render or similar environment where system Chrome is available
-        // Only set executablePath if we're confident it exists
-        if (process.env.RENDER || process.env.CI) {
-          browserOptions.executablePath = systemChromePath;
-        }
+        // Always use system Chrome in production on Render
+        browserOptions.executablePath = systemChromePath;
       }
 
       browser = await chromium.launch(browserOptions);
