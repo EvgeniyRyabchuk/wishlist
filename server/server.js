@@ -172,7 +172,7 @@ async function extractProductInfo(url) {
       const page = await browser.newPage();
 
       // Set a reasonable viewport
-      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.setViewport({ width: 1280, height: 800 });
 
       // Set extra HTTP headers including user agent
       await page.setExtraHTTPHeaders({
