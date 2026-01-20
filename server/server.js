@@ -9,7 +9,15 @@ let chromium;
 
 try {
   playwright = require('playwright');
-  chromium = playwright.chromium;
+
+  // Check if running in production (like on Render) and use system Chrome if available
+  if (process.env.NODE_ENV === 'production') {
+    // In production, try to use system-installed Chrome
+    chromium = playwright.chromium;
+  } else {
+    // In development, use the standard Playwright chromium
+    chromium = playwright.chromium;
+  }
 } catch (error) {
   console.error('Playwright not available:', error.message);
   console.error('Make sure to install Playwright browsers with: npx playwright install chromium');
@@ -58,7 +66,14 @@ app.get('/playwright-status', async (req, res) => {
     }
 
     // Try to launch a simple browser instance to verify
-    const browser = await chromium.launch({ headless: true });
+    const browserOptions = { headless: true };
+
+    // In production environments, try to use system Chrome if available
+    if (process.env.NODE_ENV === 'production') {
+      browserOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
+    }
+
+    const browser = await chromium.launch(browserOptions);
     await browser.close();
 
     res.status(200).json({
@@ -139,6 +154,11 @@ async function extractProductInfo(url) {
           '--disable-backgrounding-occluded-windows'
         ]
       };
+
+      // In production environments, try to use system Chrome if available
+      if (process.env.NODE_ENV === 'production') {
+        browserOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
+      }
 
       browser = await chromium.launch(browserOptions);
 
