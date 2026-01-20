@@ -63,8 +63,11 @@ app.get('/puppeteer-status', async (req, res) => {
         // Use system Chrome on Render/Linux
         const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
 
-        // Always use system Chrome in production on Render
-        browserOptions.executablePath = systemChromePath;
+        // Check if running on Render environment specifically
+        if (process.env.RENDER) {
+          browserOptions.executablePath = systemChromePath;
+        }
+        // For other production environments, let Puppeteer use its default behavior
     }
 
     const browser = await puppeteer.launch(browserOptions);
@@ -157,8 +160,11 @@ async function extractProductInfo(url) {
         // Use system Chrome on Render/Linux
         const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
 
-        // Always use system Chrome in production on Render
-        browserOptions.executablePath = systemChromePath;
+        // Check if running on Render environment specifically
+        if (process.env.RENDER) {
+          browserOptions.executablePath = systemChromePath;
+        }
+        // For other production environments, let Puppeteer use its default behavior
       }
 
       browser = await puppeteer.launch(browserOptions);
