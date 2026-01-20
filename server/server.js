@@ -112,7 +112,7 @@ async function extractProductInfo(url) {
 
   let browser;
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Product extraction timed out after 20 seconds')), 20000)
+    setTimeout(() => reject(new Error('Product extraction timed out after 40 seconds')), 40000)
   );
 
   // Main extraction logic wrapped in a promise for timeout
@@ -173,64 +173,46 @@ async function extractProductInfo(url) {
       });
 
       // Add extra wait time for dynamic content
-      await page.setDefaultNavigationTimeout(60000); // 60 seconds
+      await page.setDefaultNavigationTimeout(90000); // 90 seconds for production
 
-      // Navigate to the URL with shorter timeout
+      // Navigate to the URL with increased timeout
       console.log(`Navigating to: ${url}`);
       await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 10000 // Reduced to 10 seconds
+        waitUntil: 'networkidle', // Wait until network is idle
+        timeout: 30000 // Increased to 30 seconds
       });
 
       console.log('Page loaded, waiting for content...');
 
-      // Wait for content to load - reduced time
-      await page.waitForTimeout(1000);
+      // Wait for content to load - increased time in production
+      const waitTime = process.env.NODE_ENV === 'production' ? 3000 : 1000; // 3s in prod, 1s in dev
+      await page.waitForTimeout(waitTime);
 
       // Additional wait for JavaScript to execute and content to load
-      await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
+      await page.waitForLoadState('networkidle', { timeout: 20000 }); // Wait for network idle in production
       // Wait a bit more for dynamic content to load
-      await page.waitForTimeout(2000);
+      const additionalWaitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000; // 5s in prod, 2s in dev
+      await page.waitForTimeout(additionalWaitTime);
 
-      // Trigger potential lazy-loaded images by scrolling - reduced waits
+      // Trigger potential lazy-loaded images by scrolling - adjusted waits for production
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight / 2);
       });
-      await page.waitForTimeout(500); // Reduced wait time
+      const scrollWaitTime = process.env.NODE_ENV === 'production' ? 1000 : 500; // 1s in prod, 0.5s in dev
+      await page.waitForTimeout(scrollWaitTime);
 
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
-      await page.waitForTimeout(500); // Reduced wait time
+      await page.waitForTimeout(scrollWaitTime); // Same wait time after second scroll
 
-      // Wait for images to be loaded with shorter timeout
-      await page.evaluate(() => {
-        return new Promise((resolve) => {
-          // Check if all images are loaded
-          const images = Array.from(document.images);
-          const unloadedImages = images.filter(img => !img.complete);
-
-          if (unloadedImages.length === 0) {
-            resolve();
-            return;
-          }
-
-          let loadedCount = 0;
-          const checkLoaded = () => {
-            loadedCount++;
-            if (loadedCount === unloadedImages.length) {
-              resolve();
-            }
-          };
-
-          unloadedImages.forEach(img => {
-            img.addEventListener('load', checkLoaded);
-            img.addEventListener('error', checkLoaded);
-          });
-
-          // Resolve anyway after shorter time if some images are slow
-          setTimeout(resolve, 1000); // Reduced from 2 seconds to 1 second
-        });
+      // Wait for images to be loaded with adjusted timeout for production
+      await page.waitForFunction(() => {
+        const images = Array.from(document.images);
+        const unloadedImages = images.filter(img => !img.complete);
+        return unloadedImages.length === 0;
+      }, { timeout: 10000 }).catch(() => {
+        console.log('Timed out waiting for all images to load, continuing anyway');
       });
 
       // Extract product information based on the site
