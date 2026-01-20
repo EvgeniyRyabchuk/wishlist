@@ -1,6 +1,6 @@
 FROM node:18-slim
 
-# Install dependencies for running Playwright
+# Install dependencies for running Puppeteer
 RUN apt-get update \
     && apt-get install -y wget gnupg \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
@@ -17,9 +17,6 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
-
-# Install Playwright browsers
-RUN npx playwright install chromium
 
 # Copy the rest of the application
 COPY . .

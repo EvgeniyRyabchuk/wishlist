@@ -3,24 +3,14 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config(); // Load environment variables
 
-// Dynamically import Playwright to handle cases where it might not be available
-let playwright;
-let chromium;
+// Dynamically import Puppeteer to handle cases where it might not be available
+let puppeteer;
 
 try {
-  playwright = require('playwright');
-
-  // Check if running in production (like on Render) and use system Chrome if available
-  if (process.env.NODE_ENV === 'production') {
-    // In production, try to use system-installed Chrome
-    chromium = playwright.chromium;
-  } else {
-    // In development, use the standard Playwright chromium
-    chromium = playwright.chromium;
-  }
+  puppeteer = require('puppeteer');
 } catch (error) {
-  console.error('Playwright not available:', error.message);
-  console.error('Make sure to install Playwright browsers with: npx playwright install chromium');
+  console.error('Puppeteer not available:', error.message);
+  console.error('Make sure to install Puppeteer with: npm install puppeteer');
 }
 
 const { sequelize } = require('./database/db'); // Import database connection
@@ -50,17 +40,17 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    playwrightAvailable: !!chromium
+    puppeteerAvailable: !!puppeteer
   });
 });
 
-// Playwright check endpoint
-app.get('/playwright-status', async (req, res) => {
+// Puppeteer check endpoint
+app.get('/puppeteer-status', async (req, res) => {
   try {
-    if (!chromium) {
+    if (!puppeteer) {
       return res.status(500).json({
         status: 'ERROR',
-        message: 'Playwright is not available',
+        message: 'Puppeteer is not available',
         available: false
       });
     }
@@ -77,18 +67,18 @@ app.get('/playwright-status', async (req, res) => {
         browserOptions.executablePath = systemChromePath;
     }
 
-    const browser = await chromium.launch(browserOptions);
+    const browser = await puppeteer.launch(browserOptions);
     await browser.close();
 
     res.status(200).json({
       status: 'OK',
-      message: 'Playwright is available and working',
+      message: 'Puppeteer is available and working',
       available: true
     });
   } catch (error) {
     res.status(500).json({
       status: 'ERROR',
-      message: 'Playwright is available but not working properly',
+      message: 'Puppeteer is available but not working properly',
       available: true,
       error: error.message
     });
@@ -109,9 +99,9 @@ const SUPPORTED_DOMAINS = [
 
 // Function to extract product info from a URL
 async function extractProductInfo(url) {
-  // Check if Playwright is available
-  if (!chromium) {
-    throw new Error('Playwright is not available. Browser automation is not possible.');
+  // Check if Puppeteer is available
+  if (!puppeteer) {
+    throw new Error('Puppeteer is not available. Browser automation is not possible.');
   }
 
   let browser;
@@ -171,7 +161,7 @@ async function extractProductInfo(url) {
         browserOptions.executablePath = systemChromePath;
       }
 
-      browser = await chromium.launch(browserOptions);
+      browser = await puppeteer.launch(browserOptions);
 
       const page = await browser.newPage();
 
