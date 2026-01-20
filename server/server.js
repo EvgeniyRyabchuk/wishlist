@@ -141,7 +141,7 @@ async function extractProductInfo(url) {
         throw new Error(`Domain ${domain} is not supported`);
       }
 
-      // Launch browser with optimized options for speed
+      // Launch browser with optimized options for speed and network access
       const browserOptions = {
         headless: true, // Set to false for debugging
         args: [
@@ -158,7 +158,10 @@ async function extractProductInfo(url) {
           '--disable-background-timer-throttling',
           '--disable-renderer-backgrounding',
           '--disable-extensions',
-          '--disable-backgrounding-occluded-windows'
+          '--disable-backgrounding-occluded-windows',
+          '--disable-features=NetworkService',
+          '--single-process', // This can help in some containerized environments
+          '--disable-features=VizServiceWorker'
         ]
       };
 
