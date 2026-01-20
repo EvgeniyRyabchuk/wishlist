@@ -1,8 +1,19 @@
 const express = require('express');
-const { chromium } = require('playwright');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config(); // Load environment variables
+
+// Dynamically import Playwright to handle cases where it might not be available
+let playwright;
+let chromium;
+
+try {
+  playwright = require('playwright');
+  chromium = playwright.chromium;
+} catch (error) {
+  console.error('Playwright not available:', error.message);
+  console.error('Make sure to install Playwright browsers with: npx playwright install chromium');
+}
 
 const { sequelize } = require('./database/db'); // Import database connection
 const db = require('./models'); // Import all models
@@ -26,6 +37,45 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, './client'))); // Serve static files from the client directory
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    playwrightAvailable: !!chromium
+  });
+});
+
+// Playwright check endpoint
+app.get('/playwright-status', async (req, res) => {
+  try {
+    if (!chromium) {
+      return res.status(500).json({
+        status: 'ERROR',
+        message: 'Playwright is not available',
+        available: false
+      });
+    }
+
+    // Try to launch a simple browser instance to verify
+    const browser = await chromium.launch({ headless: true });
+    await browser.close();
+
+    res.status(200).json({
+      status: 'OK',
+      message: 'Playwright is available and working',
+      available: true
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Playwright is available but not working properly',
+      available: true,
+      error: error.message
+    });
+  }
+});
+
 // Supported domains
 const SUPPORTED_DOMAINS = [
   'rozetka.com.ua',
@@ -40,6 +90,11 @@ const SUPPORTED_DOMAINS = [
 
 // Function to extract product info from a URL
 async function extractProductInfo(url) {
+  // Check if Playwright is available
+  if (!chromium) {
+    throw new Error('Playwright is not available. Browser automation is not possible.');
+  }
+
   let browser;
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Product extraction timed out after 20 seconds')), 20000)

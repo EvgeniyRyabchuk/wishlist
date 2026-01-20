@@ -12,9 +12,8 @@ services:
     apt-get update
     apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 ca-certificates curl
     npm install
-    npx playwright install chromium
   # Run migrations before starting the server
-  startCommand: "npm start"
+  startCommand: "npx playwright install chromium && npm start"
   healthCheckPath: "/"
   envVars:
   - key: NODE_ENV
