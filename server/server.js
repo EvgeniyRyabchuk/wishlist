@@ -5,6 +5,7 @@ require('dotenv').config(); // Load environment variables
 
 // Dynamically import Puppeteer to handle cases where it might not be available
 let puppeteer;
+const puppeteerConfig = require('./puppeteer.config.js');
 
 try {
   puppeteer = require('puppeteer');
@@ -55,20 +56,8 @@ app.get('/puppeteer-status', async (req, res) => {
       });
     }
 
-    // Try to launch a simple browser instance to verify
-    const browserOptions = { headless: true };
-
-    // In production environments, try to use system Chrome if available
-    if (process.env.NODE_ENV === 'production') {
-        // Use system Chrome on Render/Linux
-        const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
-
-        // Check if running on Render environment specifically
-        if (process.env.RENDER) {
-          browserOptions.executablePath = systemChromePath;
-        }
-        // For other production environments, let Puppeteer use its default behavior
-    }
+    // Use the puppeteer configuration
+    const browserOptions = { ...puppeteerConfig };
 
     const browser = await puppeteer.launch(browserOptions);
     await browser.close();
@@ -131,41 +120,8 @@ async function extractProductInfo(url) {
         throw new Error(`Domain ${domain} is not supported`);
       }
 
-      // Launch browser with optimized options for speed and network access
-      const browserOptions = {
-        headless: true, // Set to false for debugging
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-background-timer-throttling',
-          '--disable-renderer-backgrounding',
-          '--disable-extensions',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-features=NetworkService',
-          '--single-process', // This can help in some containerized environments
-          '--disable-features=VizServiceWorker'
-        ]
-      };
-
-      // In production environments, try to use system Chrome if available
-      if (process.env.NODE_ENV === 'production') {
-        // Use system Chrome on Render/Linux
-        const systemChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
-
-        // Check if running on Render environment specifically
-        if (process.env.RENDER) {
-          browserOptions.executablePath = systemChromePath;
-        }
-        // For other production environments, let Puppeteer use its default behavior
-      }
+      // Use the puppeteer configuration
+      const browserOptions = { ...puppeteerConfig };
 
       browser = await puppeteer.launch(browserOptions);
 

@@ -9,7 +9,7 @@ services:
   runtime: node
   plan: free
   region: oregon  # Available regions: oregon, ohio, frankfurt, singapore
-  
+
   build:
     # Commands to run during the build phase
     # This runs after your code is cloned but before the service starts
@@ -21,12 +21,16 @@ services:
     - npm install
 
   startCommand: "npx sequelize db:migrate && npm start"
-  
+
   envVars:
   - key: NODE_ENV
     value: production
   - key: PORT
     sync: false  # Render will set this automatically
+  - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+    value: true
+  - key: PUPPETEER_EXECUTABLE_PATH
+    value: /usr/bin/google-chrome-stable
 
 databases:
 - name: wishlist-db

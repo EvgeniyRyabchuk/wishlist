@@ -8,17 +8,22 @@ RUN apk add --no-cache \
     freetype \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    dbus \
+    su-exec
 
 # Set environment variables for Render.com
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Allow Puppeteer to run as root (needed in containers)
+ENV PUPPETEER_USER_DATA_DIR=/tmp/puppeteer
 
 # Set the working directory
 WORKDIR /app/server
 
-# # Copy package.json and package-lock.json (if available)
+# Copy package.json and package-lock.json (if available)
 COPY server/package*.json ./
 
 # Install dependencies (single install!)
