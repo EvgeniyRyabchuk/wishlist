@@ -59,8 +59,24 @@ app.get('/puppeteer-status', async (req, res) => {
     // Use the puppeteer configuration
     const browserOptions = { ...puppeteerConfig };
 
-    const browser = await puppeteer.launch(browserOptions);
-    await browser.close();
+    let browser;
+    try {
+      browser = await puppeteer.launch(browserOptions);
+      const page = await browser.newPage();
+
+      // Test navigation to ensure everything works
+      await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      await page.close();
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (closeError) {
+          console.error('Error closing browser in status check:', closeError);
+        }
+      }
+    }
 
     res.status(200).json({
       status: 'OK',
@@ -103,6 +119,7 @@ async function extractProductInfo(url) {
 
   // Main extraction logic wrapped in a promise for timeout
   const extractionPromise = (async () => {
+    let page; // Declare page variable here so it's accessible in finally block
     try {
       // Validate URL
       const urlObj = new URL(url);
@@ -125,7 +142,7 @@ async function extractProductInfo(url) {
 
       browser = await puppeteer.launch(browserOptions);
 
-      const page = await browser.newPage();
+      page = await browser.newPage();
 
       // Add error handling for page crashes
       page.on('error', (err) => {
@@ -158,6 +175,9 @@ async function extractProductInfo(url) {
       await page.setExtraHTTPHeaders({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       });
+
+      // Add a small delay before navigation (Render containers are slow to stabilize)
+      await new Promise(r => setTimeout(r, 1000));
 
       // Navigate to the URL with appropriate waitUntil (STOP using networkidle2 for Rozetka)
       console.log(`Navigating to: ${url}`);
@@ -238,6 +258,16 @@ async function extractProductInfo(url) {
 
       return productInfo;
     } finally {
+      // Close page first if it exists
+      if (page) {
+        try {
+          await page.close();
+        } catch (pageCloseError) {
+          console.error('Error closing page:', pageCloseError);
+        }
+      }
+
+      // Then close browser if it exists
       if (browser) {
         try {
           await browser.close();
