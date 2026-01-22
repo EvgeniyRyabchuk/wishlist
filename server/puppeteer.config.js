@@ -11,7 +11,6 @@ const puppeteerConfig = {
     '--no-first-run',
     '--no-zygote',
     '--disable-gpu',
-    '--single-process', // Added for better stability on Render
     '--disable-web-security',
     '--disable-features=VizDisplayCompositor',
     '--disable-blink-features=AutomationControlled',
@@ -28,7 +27,23 @@ const puppeteerConfig = {
     '--disable-features=VizMain',
     '--disable-features=SpareRendererForSitePerProcess',
     '--disable-features=OutOfBlinkCors',
-    '--memory-pressure-off'
+    '--memory-pressure-off',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-priority-changing',
+    '--disable-background-media-suspend',
+    '--disable-ipc-flooding-protection',
+    '--disable-background-timer-throttling',
+    '--memory-pressure-off',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-setuid-sandbox',
+    '--disable-features=VizDisplayCompositor',
+    '--disable-gpu-sandbox',
+    '--disable-extensions-http-throttling',
+    '--pull-messages-from-layers',
+    '--disable-threaded-animation',
+    '--disable-threaded-scrolling',
+    '--disable-touch-drag-drop'
   ]
 };
 

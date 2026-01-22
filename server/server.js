@@ -127,6 +127,15 @@ async function extractProductInfo(url) {
 
       const page = await browser.newPage();
 
+      // Add error handling for page crashes
+      page.on('error', (err) => {
+        console.error('Page error:', err);
+      });
+
+      page.on('pageerror', (err) => {
+        console.error('Page error event:', err);
+      });
+
       // Set global timeouts (required)
       await page.setDefaultTimeout(120000);
       await page.setDefaultNavigationTimeout(120000);
@@ -152,10 +161,19 @@ async function extractProductInfo(url) {
 
       // Navigate to the URL with appropriate waitUntil (STOP using networkidle2 for Rozetka)
       console.log(`Navigating to: ${url}`);
-      await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 120000,
-      });
+      try {
+        await page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 120000,
+        });
+      } catch (navigationError) {
+        console.error('Navigation failed:', navigationError);
+        // If navigation fails, try with a more lenient approach
+        await page.goto(url, {
+          waitUntil: "load",
+          timeout: 120000,
+        });
+      }
 
       // Wait for a REAL Rozetka selector to ensure the product page is actually ready
       await page.waitForSelector("h1, .product__title, .product-title", { timeout: 60000 });
