@@ -1,7 +1,7 @@
 // Puppeteer configuration for different environments
 const puppeteerConfig = {
   // Common options
-  headless: true,
+  headless: "new", // Use new headless mode for better stability
   // Prevent issues with running as root in containers
   args: [
     '--no-sandbox',
@@ -11,6 +11,7 @@ const puppeteerConfig = {
     '--no-first-run',
     '--no-zygote',
     '--disable-gpu',
+    '--single-process', // Added for better stability on Render
     '--disable-web-security',
     '--disable-features=VizDisplayCompositor',
     '--disable-blink-features=AutomationControlled',

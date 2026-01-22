@@ -127,6 +127,21 @@ async function extractProductInfo(url) {
 
       const page = await browser.newPage();
 
+      // Set global timeouts (required)
+      await page.setDefaultTimeout(120000);
+      await page.setDefaultNavigationTimeout(120000);
+
+      // Disable images & fonts for massive speed boost (especially on Render free tier)
+      await page.setRequestInterception(true);
+      page.on("request", req => {
+        const type = req.resourceType();
+        if (["image", "font", "media"].includes(type)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+
       // Set a reasonable viewport
       await page.setViewport({ width: 1280, height: 800 });
 
@@ -135,48 +150,20 @@ async function extractProductInfo(url) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       });
 
-      // Add extra wait time for dynamic content
-      await page.setDefaultNavigationTimeout(90000); // 90 seconds for production
-
-      // Navigate to the URL with increased timeout
+      // Navigate to the URL with appropriate waitUntil (STOP using networkidle2 for Rozetka)
       console.log(`Navigating to: ${url}`);
       await page.goto(url, {
-        waitUntil: 'domcontentloaded', // Wait until DOM content is loaded (more compatible)
-        timeout: 30000 // Increased to 30 seconds
+        waitUntil: "domcontentloaded",
+        timeout: 120000,
       });
+
+      // Wait for a REAL Rozetka selector to ensure the product page is actually ready
+      await page.waitForSelector("h1, .product__title, .product-title", { timeout: 60000 });
 
       console.log('Page loaded, waiting for content...');
 
-      // Wait for content to load - increased time in production
-      const waitTime = process.env.NODE_ENV === 'production' ? 3000 : 1000; // 3s in prod, 1s in dev
-      await page.waitForTimeout(waitTime);
-
-      // Additional wait for JavaScript to execute and content to load
-      await page.waitForTimeout(5000); // Wait for content to load
-      // Wait a bit more for dynamic content to load
-      const additionalWaitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000; // 5s in prod, 2s in dev
-      await page.waitForTimeout(additionalWaitTime);
-
-      // Trigger potential lazy-loaded images by scrolling - adjusted waits for production
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight / 2);
-      });
-      const scrollWaitTime = process.env.NODE_ENV === 'production' ? 1000 : 500; // 1s in prod, 0.5s in dev
-      await page.waitForTimeout(scrollWaitTime);
-
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      });
-      await page.waitForTimeout(scrollWaitTime); // Same wait time after second scroll
-
-      // Wait for images to be loaded with adjusted timeout for production
-      await page.waitForFunction(() => {
-        const images = Array.from(document.images);
-        const unloadedImages = images.filter(img => !img.complete);
-        return unloadedImages.length === 0;
-      }, { timeout: 10000 }).catch(() => {
-        console.log('Timed out waiting for all images to load, continuing anyway');
-      });
+      // Since we're blocking images and fonts, we don't need to wait for them to load
+      // The page.waitForSelector already ensures the product content is available
 
       // Extract product information based on the site
       let productInfo = {};
