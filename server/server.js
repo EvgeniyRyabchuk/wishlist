@@ -57,7 +57,11 @@ app.get('/puppeteer-status', async (req, res) => {
     }
 
     // Use the puppeteer configuration
-    const browserOptions = { ...puppeteerConfig };
+    const browserOptions = {
+      ...puppeteerConfig,
+      ignoreHTTPSErrors: true,
+      waitForInitialPage: false,
+    };
 
     let browser;
     try {
@@ -65,7 +69,7 @@ app.get('/puppeteer-status', async (req, res) => {
       const page = await browser.newPage();
 
       // Test navigation to ensure everything works
-      await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 10000 });
 
       await page.close();
     } finally {
@@ -114,7 +118,7 @@ async function extractProductInfo(url) {
 
   let browser;
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Product extraction timed out after 40 seconds')), 40000)
+    setTimeout(() => reject(new Error('Product extraction timed out after 20 seconds')), 20000) // Reduced from 60 to 20 seconds
   );
 
   // Main extraction logic wrapped in a promise for timeout
@@ -137,25 +141,43 @@ async function extractProductInfo(url) {
         throw new Error(`Domain ${domain} is not supported`);
       }
 
-      // Use the puppeteer configuration
-      const browserOptions = { ...puppeteerConfig };
+      // Use the puppeteer configuration with additional options to prevent target closed errors
+      const browserOptions = {
+        ...puppeteerConfig,
+        ignoreHTTPSErrors: true,
+        waitForInitialPage: false,
+      };
 
       browser = await puppeteer.launch(browserOptions);
 
-      page = await browser.newPage();
-
-      // Add error handling for page crashes
-      page.on('error', (err) => {
-        console.error('Page error:', err);
+      // Add error handlers to prevent target closed errors
+      browser.on('disconnected', () => {
+        console.log('Browser disconnected');
       });
 
-      page.on('pageerror', (err) => {
-        console.error('Page error event:', err);
+      browser.on('targetchanged', (target) => {
+        // Handle target changes
       });
+
+      try {
+        page = await browser.newPage();
+
+        // Add error handling for page crashes
+        page.on('error', (err) => {
+          console.error('Page error:', err);
+        });
+
+        page.on('pageerror', (err) => {
+          console.error('Page error event:', err);
+        });
+      } catch (pageError) {
+        console.error('Error creating page:', pageError);
+        throw new Error('Failed to create browser page. This might be due to Puppeteer/Chrome compatibility issues.');
+      }
 
       // Set global timeouts (required)
-      await page.setDefaultTimeout(120000);
-      await page.setDefaultNavigationTimeout(120000);
+      await page.setDefaultTimeout(30000); // Reduced to 30 seconds
+      await page.setDefaultNavigationTimeout(30000); // Reduced to 30 seconds
 
       // Disable images & fonts for massive speed boost (especially on Render free tier)
       await page.setRequestInterception(true);
@@ -176,27 +198,27 @@ async function extractProductInfo(url) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       });
 
-      // Add a small delay before navigation (Render containers are slow to stabilize)
-      await new Promise(r => setTimeout(r, 1000));
+      // Minimal delay before navigation
+      await new Promise(r => setTimeout(r, 200)); // Reduced from 1000ms to 200ms
 
       // Navigate to the URL with appropriate waitUntil (STOP using networkidle2 for Rozetka)
       console.log(`Navigating to: ${url}`);
       try {
         await page.goto(url, {
           waitUntil: "domcontentloaded",
-          timeout: 120000,
+          timeout: 15000, // Reduced to 15 seconds
         });
       } catch (navigationError) {
         console.error('Navigation failed:', navigationError);
         // If navigation fails, try with a more lenient approach
         await page.goto(url, {
           waitUntil: "load",
-          timeout: 120000,
+          timeout: 15000, // Reduced to 15 seconds
         });
       }
 
       // Wait for a REAL Rozetka selector to ensure the product page is actually ready
-      await page.waitForSelector("h1, .product__title, .product-title", { timeout: 60000 });
+      await page.waitForSelector("h1, .product__title, .product-title", { timeout: 15000 }); // Reduced to 15 seconds
 
       console.log('Page loaded, waiting for content...');
 

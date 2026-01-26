@@ -7,51 +7,31 @@ const puppeteerConfig = {
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--no-zygote',
-    '--single-process',
-
-    // 🔥 CRITICAL on Render
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-backgrounding-occluded-windows',
-    '--disable-breakpad',
-    '--disable-client-side-phishing-detection',
-    '--disable-component-update',
-    '--disable-default-apps',
-    '--disable-extensions',
-    '--disable-features=site-per-process',
-    '--disable-hang-monitor',
-    '--disable-ipc-flooding-protection',
-    '--disable-popup-blocking',
-    '--disable-sync',
-    '--metrics-recording-only',
+    '--disable-accelerated-2d-canvas',
     '--no-first-run',
-    '--safebrowsing-disable-auto-update',
-
-    // Additional flags for stability
+    '--no-zygote',
+    '--disable-gpu',
     '--disable-web-security',
     '--disable-features=VizDisplayCompositor',
-    '--disable-blink-features=AutomationControlled',
-    '--disable-renderer-backgrounding',
-    '--disable-features=NetworkService',
-    '--disable-features=VizServiceWorker',
-    '--disable-features=TranslateUI',
-    '--max_old_space_size=4096',
-    '--disable-features=VizMain',
     '--disable-features=SpareRendererForSitePerProcess',
-    '--disable-features=OutOfBlinkCors',
-    '--memory-pressure-off',
-    '--disable-renderer-priority-changing',
-    '--disable-background-media-suspend',
-    '--pull-messages-from-layers',
-    '--disable-threaded-animation',
-    '--disable-threaded-scrolling',
-    '--disable-touch-drag-drop',
-    '--disable-features=VizDisplayCompositor',
-    '--disable-gpu-sandbox',
+    '--disable-features=TranslateUI',
+    '--disable-features=NetworkService',
+    '--disable-features=VizMain',
+    '--disable-site-isolation-trials',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--disable-features=TouchpadOverscrollHistoryNavigation',
+    '--disable-ipc-flooding-protection',
+    '--disable-background-timer-throttling',
+    '--disable-background-networking',
     '--disable-extensions-http-throttling'
-  ]
+  ],
+  // Add some additional options to improve stability
+  devtools: false,
+  defaultViewport: {
+    width: 1024,
+    height: 768
+  }
 };
 
 // Determine the executable path based on environment
