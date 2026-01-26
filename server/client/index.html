@@ -216,19 +216,42 @@
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
     <div class="max-w-6xl mx-auto">
-        <header class="text-center mb-8 fade-in">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+        <header class="text-center mb-8 fade-in flex flex-col items-center">
+            <div class="mb-4">
+                <select id="language-selector" class="bg-white border border-gray-300 rounded-lg px-3 py-1 text-sm">
+                    <option value="en">English</option>
+                    <option value="uk">Українська</option>
+                    <option value="ru">Русский</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2" data-translate="title">
                 Birthday Wishlist Platform
             </h1>
-            <p class="text-gray-600">Create and share your wishlist with friends and family!</p>
+            <p class="text-gray-600" data-translate="subtitle">
+                Create and share your wishlist with friends and family!
+            </p>
         </header>
+
+        <!-- Home Page Welcome Section with Create Button -->
+        <section id="home-page" class="hidden">
+            <div class="max-w-2xl mx-auto text-center">
+                <div class="glass-card p-8 rounded-xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4" data-translate="welcomeMessage">Welcome to Birthday Wishlist!</h2>
+                    <p class="text-gray-600 mb-6" data-translate="welcomeDescription">Create your personal wishlist and share it with friends and family.</p>
+                    <button id="create-wishlist-btn" class="glass-button px-6 py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action" data-translate="createButton">
+                        Create Your Wishlist
+                    </button>
+                </div>
+            </div>
+        </section>
 
         <main class="space-y-8">
 
         <!-- Wishlist Display Area -->
             <section id="display-wishlist" class="hidden">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">Wishlist of: <span id="owner-name" class="text-indigo-600"></span></h2>
-                <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="display-items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </section>
 
 
@@ -297,7 +320,7 @@
                     <!-- Current Wishlist Section -->
                     <section id="current-wishlist" class="glass-card p-6 flex flex-col">
                         <h3 class="text-xl font-semibold text-white mb-4">Your Current Wishlist</h3>
-                        <div id="wishlist-items-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 flex-grow overflow-y-auto max-h-96 pr-2"></div>
+                        <div id="wishlist-items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 flex-grow overflow-y-auto max-h-96 pr-2"></div>
                         <div class="mt-6">
                             <button id="generate-link-btn" class="glass-button w-full py-3 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action">
                                 Generate Shareable Link
@@ -386,6 +409,7 @@
         </div>
     </div>
 
+    <script src="/lang.js"></script>
     <script src="/script.js"></script>
 </body>
 </html>

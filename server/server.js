@@ -106,7 +106,19 @@ const SUPPORTED_DOMAINS = [
   'ebay.com',
   'bestbuy.com',
   'target.com',
-  'aliexpress.com'
+  'aliexpress.com',
+  'walmart.com',
+  'etsy.com',
+  'newegg.com',
+  'sephora.com',
+  'zalando.de',
+  'mediamarkt.de',
+  'saturn.de',
+  'apple.com',
+  'samsung.com',
+  'mediaexpert.pl',
+  'morele.net',
+  'x-kom.pl'
 ];
 
 // Function to extract product info from a URL
@@ -252,6 +264,15 @@ async function extractProductInfo(url) {
       } else if (domain.includes('aliexpress')) {
         console.log('Using AliExpress extractor');
         productInfo = await extractAliexpressInfo(page);
+      } else if (domain.includes('walmart')) {
+        console.log('Using Walmart extractor');
+        productInfo = await extractWalmartInfo(page);
+      } else if (domain.includes('etsy')) {
+        console.log('Using Etsy extractor');
+        productInfo = await extractEtsyInfo(page);
+      } else if (domain.includes('newegg')) {
+        console.log('Using Newegg extractor');
+        productInfo = await extractNeweggInfo(page);
       } else {
         console.log('Using generic extractor');
         // Generic extraction using Open Graph tags
@@ -947,6 +968,168 @@ async function extractAliexpressInfo(page) {
   };
 }
 
+// Extract product info from Walmart
+async function extractWalmartInfo(page) {
+  // Try to get product title
+  let title = null;
+  const titleSelectors = ['h1[data-testid="product-title"]', 'h1.prod-ProductTitle', 'h1'];
+  for (const selector of titleSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        title = await page.evaluate(el => el.textContent?.trim(), element);
+        if (title) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get price
+  let price = null;
+  const priceSelectors = ['span[data-testid="price-current"]', '[itemprop="price"]', '.price-current'];
+  for (const selector of priceSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        price = await page.evaluate(el => el.textContent?.trim(), element);
+        if (price) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get image
+  let image = null;
+  const imageSelectors = ['img[data-testid="product-image"]', 'img.prod-ProductImage', 'img'];
+  for (const selector of imageSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        image = await page.evaluate(el => el.src, element);
+        if (image) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  return {
+    title: title,
+    price: price,
+    image: image
+  };
+}
+
+// Extract product info from Etsy
+async function extractEtsyInfo(page) {
+  // Try to get product title
+  let title = null;
+  const titleSelectors = ['h1[data-listing-id]', 'h1.v2-listing-title'];
+  for (const selector of titleSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        title = await page.evaluate(el => el.textContent?.trim(), element);
+        if (title) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get price
+  let price = null;
+  const priceSelectors = ['.wt-text-title-03', '.currency-value'];
+  for (const selector of priceSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        price = await page.evaluate(el => el.textContent?.trim(), element);
+        if (price) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get image
+  let image = null;
+  const imageSelectors = ['img[data-listing-image]'];
+  for (const selector of imageSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        image = await page.evaluate(el => el.src, element);
+        if (image) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  return {
+    title: title,
+    price: price,
+    image: image
+  };
+}
+
+// Extract product info from Newegg
+async function extractNeweggInfo(page) {
+  // Try to get product title
+  let title = null;
+  const titleSelectors = ['#grpDescrip_h1', 'h1'];
+  for (const selector of titleSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        title = await page.evaluate(el => el.textContent?.trim(), element);
+        if (title) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get price
+  let price = null;
+  const priceSelectors = ['.price-current', '.grpRichText', '[data-testid="product-price-current"]'];
+  for (const selector of priceSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        price = await page.evaluate(el => el.textContent?.trim(), element);
+        if (price) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  // Try to get image
+  let image = null;
+  const imageSelectors = ['#landingImage', 'img.master-image'];
+  for (const selector of imageSelectors) {
+    try {
+      const element = await page.$(selector);
+      if (element) {
+        image = await page.evaluate(el => el.src, element);
+        if (image) break;
+      }
+    } catch (e) {
+      continue; // Try next selector
+    }
+  }
+
+  return {
+    title: title,
+    price: price,
+    image: image
+  };
+}
+
 // Generic extraction using Open Graph tags and other meta information
 async function extractGenericInfo(page) {
   // Try to get Open Graph tags
@@ -1348,7 +1531,7 @@ app.post('/api/lists', async (req, res) => {
       description: newList.description,
       creatorId: newList.creatorId,
       shareToken: newList.shareToken,
-      shareableLink: `${req.protocol}://${req.get('host')}/wishlist/${newList.shareToken}`,
+      shareableLink: `${req.protocol}://${req.get('host')}/lists/${newList.shareToken}/check`,
       message: 'List created successfully'
     });
   } catch (error) {
@@ -1593,12 +1776,95 @@ app.get('/api/lists/:token/stats', async (req, res) => {
   }
 });
 
+// Serve the lists page (creation page)
+app.get('/lists', (req, res) => {
+  res.sendFile(path.join(__dirname, './client/index.html'));
+});
+
 // Serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, './client/index.html'));
 });
 
-// Serve wishlist page by share token (numeric)
+// Serve wishlist page by share token (numeric) - for guests
+app.get('/lists/:listId/check', async (req, res) => {
+  try {
+    const { listId } = req.params;
+
+    // Find the list by share token
+    const list = await db.List.findOne({
+      where: { shareToken: listId },
+      include: [
+        {
+          model: db.Creator,
+          as: 'creator',
+          attributes: ['name']
+        },
+        {
+          model: db.Goods,
+          as: 'goods',
+          include: [{
+            model: db.Guest,
+            as: 'reservedByGuest',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!list) {
+      return res.status(404).send('Wishlist not found');
+    }
+
+    // Pass the list info to the client via template variables or query params
+    // For now, we'll just serve the same HTML but the client will handle the view mode
+    res.sendFile(path.join(__dirname, './client/index.html'));
+  } catch (error) {
+    console.error('Error retrieving wishlist:', error);
+    res.status(500).send('Error retrieving wishlist');
+  }
+});
+
+// Serve wishlist page by share token (numeric) - for creators
+app.get('/lists/:listId', async (req, res) => {
+  try {
+    const { listId } = req.params;
+
+    // Find the list by share token
+    const list = await db.List.findOne({
+      where: { shareToken: listId },
+      include: [
+        {
+          model: db.Creator,
+          as: 'creator',
+          attributes: ['name']
+        },
+        {
+          model: db.Goods,
+          as: 'goods',
+          include: [{
+            model: db.Guest,
+            as: 'reservedByGuest',
+            attributes: ['id', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!list) {
+      return res.status(404).send('Wishlist not found');
+    }
+
+    // Pass the list info to the client via template variables or query params
+    // For now, we'll just serve the same HTML but the client will handle the view mode
+    res.sendFile(path.join(__dirname, './client/index.html'));
+  } catch (error) {
+    console.error('Error retrieving wishlist:', error);
+    res.status(500).send('Error retrieving wishlist');
+  }
+});
+
+// Serve wishlist page by share token (numeric) - legacy route
 app.get('/wishlist/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -1635,6 +1901,11 @@ app.get('/wishlist/:token', async (req, res) => {
     console.error('Error retrieving wishlist:', error);
     res.status(500).send('Error retrieving wishlist');
   }
+});
+
+// API endpoint to get all supported domains
+app.get('/api/domains', (req, res) => {
+  res.json({ domains: SUPPORTED_DOMAINS });
 });
 
 // Synchronize database models

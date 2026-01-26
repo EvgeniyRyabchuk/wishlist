@@ -34,37 +34,45 @@ const puppeteerConfig = {
   }
 };
 
-// Determine the executable path based on environment
-if (process.env.NODE_ENV === 'production') {
-  // On Render, try multiple possible paths for Chrome/Chromium
-  const possiblePaths = [
-    process.env.PUPPETEER_EXECUTABLE_PATH, // Use environment variable if set
+// Determine the executable path based on environment and OS
+const os = require('os');
+const fs = require('fs');
+
+// Always try to find the executable path regardless of environment
+let possiblePaths = [
+  process.env.PUPPETEER_EXECUTABLE_PATH, // Use environment variable if set
+];
+
+if (os.platform() === 'win32') {
+  // Windows paths
+  possiblePaths = possiblePaths.concat([
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    process.env.LOCALAPPDATA ? `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe` : null,
+  ]).filter(Boolean);
+} else {
+  // Unix/Linux paths
+  possiblePaths = possiblePaths.concat([
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
-    '/snap/bin/chromium'
-  ];
+    '/snap/bin/chromium',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ]);
+}
 
-  for (const path of possiblePaths) {
-    if (path) {
-      try {
-        // Check if the file exists by attempting to access it
-        const fs = require('fs');
-        if (fs.existsSync(path)) {
-          puppeteerConfig.executablePath = path;
-          break;
-        }
-      } catch (e) {
-        // If fs module isn't available or there's an error checking, continue to next path
-        continue;
-      }
-    }
+for (const path of possiblePaths) {
+  if (path && fs.existsSync(path)) {
+    puppeteerConfig.executablePath = path;
+    break;
   }
-  
-  // If no executable path was found, Puppeteer will use its default (which might fail in production)
-  if (!puppeteerConfig.executablePath) {
-    console.warn('Warning: Could not find a suitable Chrome/Chromium executable in production environment');
-  }
+}
+
+// If no executable path was found, Puppeteer will use its default
+if (!puppeteerConfig.executablePath) {
+  console.warn('Warning: Could not find a suitable Chrome/Chromium executable');
+  console.warn('Puppeteer will use its default executable path');
+  console.warn('Make sure Chrome or Chromium is installed on your system');
 }
 
 module.exports = puppeteerConfig;

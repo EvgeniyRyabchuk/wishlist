@@ -1,106 +1,128 @@
 # Birthday Wishlist Platform
 
-A platform for creating birthday wishlists where the birthday person can add items they want and guests can reserve items to purchase.
-
-## Project Structure
-
-```
-wishlist/
-├── client/                 # Frontend files (HTML, CSS, JS)
-│   ├── index.html          # Main page
-│   ├── script.js           # Client-side JavaScript
-│   └── styles.css          # Stylesheet
-└── server/                 # Backend files (Node.js, Express, PostgreSQL)
-    ├── server.js           # Main server file
-    ├── package.json        # Dependencies
-    ├── .env                # Environment variables
-    ├── config/             # Configuration files
-    ├── database/           # Database connection
-    ├── migrations/         # Database schema migrations
-    ├── models/             # Database models
-    └── API.md              # API documentation
-```
+A birthday wishlist platform with product information extraction from various e-commerce websites.
 
 ## Features
 
-- Create and manage birthday wishlists
-- Extract product information from URLs using Puppeteer
-- Allow guests to reserve items
-- Track reservation status with unique colors per guest
-- View statistics for each wishlist
-- Modern UI with glassmorphism design
+- Create and share wishlists with friends and family
+- Extract product information from URLs (supports multiple e-commerce platforms)
+- Real-time collaboration with reservation system
+- Multi-language support (English, Ukrainian, Russian, German)
+- Responsive design with 3-column grid layout
+- Docker deployment support
+- Support for multiple e-commerce providers
 
-## Tech Stack
+## Supported E-commerce Platforms
 
-### Frontend
-- HTML5
-- CSS3 (with Tailwind CSS CDN)
-- JavaScript (ES6+)
+- Rozetka.com.ua
+- Prom.ua
+- OLX.ua
+- Amazon.com
+- eBay.com
+- BestBuy.com
+- Target.com
+- AliExpress.com
+- Walmart.com
+- Etsy.com
+- Newegg.com
+- Sephora.com
+- Zalando.de
+- MediaMarkt.de
+- Saturn.de
+- Apple.com
+- Samsung.com
+- MediaExpert.pl
+- Morele.net
+- X-kom.pl
 
-### Backend
-- Node.js
-- Express.js
-- PostgreSQL
-- Sequelize ORM
-- Puppeteer (for product info extraction)
-- Dotenv (for environment configuration)
-
-## Database Schema
-
-The application uses PostgreSQL with the following main entities:
-
-- **Creators**: Information about the person creating the wishlist
-- **Lists**: Individual wishlists created by creators
-- **Guests**: People who reserve items from the wishlist
-- **Goods**: Products/items in the wishlist that can be reserved
-
-## Setup Instructions
+## Installation
 
 ### Prerequisites
-- Node.js (v14 or higher)
-- PostgreSQL (running locally or accessible remotely)
 
-### Server Setup
+- Node.js (v18 or higher)
+- PostgreSQL database
+- Docker (optional, for containerized deployment)
 
-1. Navigate to the server directory:
-   ```bash
-   cd server
-   ```
+### Local Development
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd wishlist/server
+```
 
 2. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
-3. Set up your PostgreSQL database:
-   - Create a database named `wishlist`
-   - Update the `.env` file with your database credentials
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
+```
 
-4. Create a `.env` file in the server directory:
-   ```
-   DB_HOST=127.0.0.1
-   DB_PORT=5432
-   DB_USER=evgenijrabcuk
-   DB_PASSWORD=password
-   DB_NAME=wishlist
-   NODE_ENV=development
-   PORT=3000
-   ```
+4. Run database migrations:
+```bash
+npm run migrate
+```
 
-5. Run database migrations:
-   ```bash
-   npx sequelize db:migrate
-   ```
+5. Start the server:
+```bash
+npm run dev
+```
 
-6. Start the server:
-   ```bash
-   npm run dev
-   ```
+The application will be available at `http://localhost:3000`
 
-### Client Setup
+### Docker Deployment
 
-The client is served by the Node.js server. Once the server is running, access the application at `http://localhost:3000`.
+1. Build and run with Docker Compose:
+```bash
+docker-compose up -d
+```
 
-## API Documentation
+The application will be available at `http://localhost:3000`
 
-For detailed API documentation, see [server/API.md](server/API.md).
+## API Endpoints
+
+- `GET /health` - Health check
+- `GET /puppeteer-status` - Puppeteer status check
+- `POST /api/extract-product-info` - Extract product info from URL
+- `POST /api/lists` - Create a new wishlist
+- `GET /api/lists/:token` - Get a wishlist by share token
+- `POST /api/goods` - Add a product to a wishlist
+- `PUT /api/goods/:id/reserve` - Reserve a product
+- `DELETE /api/goods/:id/reserve` - Unreserve a product
+- `GET /api/lists/:token/stats` - Get wishlist statistics
+- `GET /api/domains` - Get supported domains
+
+## Architecture
+
+- Frontend: HTML, CSS (Tailwind), JavaScript
+- Backend: Node.js with Express
+- Database: PostgreSQL with Sequelize ORM
+- Web Scraping: Puppeteer for product information extraction
+- Containerization: Docker and Docker Compose
+
+## Configuration
+
+The application supports the following environment variables:
+
+- `PORT` - Server port (default: 3000)
+- `DATABASE_URL` - PostgreSQL connection string
+- `DB_HOST` - Database host
+- `DB_USER` - Database user
+- `DB_PASSWORD` - Database password
+- `DB_NAME` - Database name
+- `DB_PORT` - Database port
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+MIT License
