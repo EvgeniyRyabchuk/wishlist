@@ -9,12 +9,10 @@ const itemNameInput = document.getElementById('item-name');
 const itemLinkInput = document.getElementById('item-link');
 const itemPriceInput = document.getElementById('item-price');
 const wishlistItemsGrid = document.getElementById('wishlist-items-grid');
-const generateLinkBtn = document.getElementById('generate-link-btn');
 const shareLinkContainer = document.getElementById('share-link-container');
 const shareLinkInput = document.getElementById('share-link');
 const copyLinkBtn = document.getElementById('copy-link-btn');
-const viewLinkInput = document.getElementById('view-link');
-const loadWishlistBtn = document.getElementById('load-wishlist-btn');
+const resetFormBtn = document.getElementById('reset-form-btn');
 const displayWishlistSection = document.getElementById('display-wishlist');
 const displayItemsGrid = document.getElementById('display-items-grid');
 const ownerNameSpan = document.getElementById('owner-name');
@@ -80,12 +78,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Show the statistics section initially
-    document.getElementById('statistics-section').style.display = 'block';
+    // Don't show the statistics section initially on homepage
+    // Only show it when viewing a specific wishlist
+    document.getElementById('statistics-section').classList.add('hidden');
     updateStatistics(); // Initialize stats
+
+    // Render the current wishlist to show initial state (empty or loaded)
+    renderCurrentWishlist();
 
     // Apply default language (English)
     translatePage('en');
+
+    // Remove loading class after initialization
+    document.body.classList.remove('loading');
 });
 
 // Function to translate the page
@@ -143,20 +148,63 @@ function translatePage(language) {
     if (createBtn) {
         createBtn.textContent = translations[language].createButton;
     }
+
+    // Update the paste button text if it exists
+    const pasteLinkBtn = document.getElementById('paste-link-btn');
+    if (pasteLinkBtn) {
+        pasteLinkBtn.textContent = translations[language].pasteAndAdd;
+    }
+
+    // Update the reset form button text if it exists
+    const resetFormBtn = document.getElementById('reset-form-btn');
+    if (resetFormBtn) {
+        resetFormBtn.textContent = translations[language].resetForm;
+    }
 }
 
 function setupEventListeners() {
     // Wishlist form submission
     wishlistForm.addEventListener('submit', addItemToWishlist);
     
-    // Generate shareable link
-    generateLinkBtn.addEventListener('click', generateShareableLink);
     
     // Copy link button
     copyLinkBtn.addEventListener('click', copyShareableLink);
+
+    // Share link button
+    const shareLinkBtn = document.getElementById('share-link-btn');
+    const whatsappShareBtn = document.getElementById('whatsapp-share');
+    const telegramShareBtn = document.getElementById('telegram-share');
+    const facebookShareBtn = document.getElementById('facebook-share');
+    const twitterShareBtn = document.getElementById('twitter-share');
+    const emailShareBtn = document.getElementById('email-share');
+
+    if (shareLinkBtn) {
+        shareLinkBtn.addEventListener('click', toggleShareDropdown);
+    }
+
+    if (whatsappShareBtn) {
+        whatsappShareBtn.addEventListener('click', shareViaWhatsApp);
+    }
+
+    if (telegramShareBtn) {
+        telegramShareBtn.addEventListener('click', shareViaTelegram);
+    }
+
+    if (facebookShareBtn) {
+        facebookShareBtn.addEventListener('click', shareViaFacebook);
+    }
+
+    if (twitterShareBtn) {
+        twitterShareBtn.addEventListener('click', shareViaTwitter);
+    }
+
+    if (emailShareBtn) {
+        emailShareBtn.addEventListener('click', shareViaEmail);
+    }
+
+    // Reset form button
+    resetFormBtn.addEventListener('click', resetForm);
     
-    // Load wishlist button
-    loadWishlistBtn.addEventListener('click', loadWishlistFromLink);
     
     // Modal close button
     closeModal.addEventListener('click', closeBookingModal);
@@ -164,10 +212,38 @@ function setupEventListeners() {
     // Confirm booking button
     confirmBookingBtn.addEventListener('click', confirmBooking);
     
-    // Close modal when clicking outside of it
-    window.addEventListener('click', function(event) {
+    // Close modal when clicking outside of it (properly handles drag scenarios)
+    let isClickStartedInsideModalContent = false;
+
+    // Track if the click started inside the modal content area (not the overlay)
+    bookingModal.addEventListener('mousedown', function(event) {
+        // Check if the mousedown happened on the overlay (background) or inside the content
         if (event.target === bookingModal) {
+            isClickStartedInsideModalContent = false; // Click started on overlay
+        } else {
+            // Click started inside the modal content area
+            isClickStartedInsideModalContent = true;
+        }
+    });
+
+    // Only close the modal if the click started and ended on the overlay
+    bookingModal.addEventListener('mouseup', function(event) {
+        if (event.target === bookingModal && !isClickStartedInsideModalContent) {
             closeBookingModal();
+        }
+        // Reset the flag
+        isClickStartedInsideModalContent = false;
+    });
+
+    // Close share dropdown when clicking outside of it
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('share-dropdown');
+        const shareButton = document.getElementById('share-link-btn');
+
+        if (dropdown && !dropdown.classList.contains('hidden')) {
+            if (!dropdown.contains(event.target) && !shareButton.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
         }
     });
 }
@@ -272,6 +348,13 @@ async function fetchProductInfo(url) {
             console.log('Failed to extract product info:', result);
             linkStatusDiv.innerHTML = `<span class="text-orange-400">ℹ️ Could not extract product info from ${urlObj.hostname}. Please enter manually.</span>`;
             linkStatusDiv.classList.remove('hidden');
+
+            // If auto-add is enabled but we couldn't extract info, still add the item with URL
+            if (autoAddEnabled) {
+                setTimeout(() => {
+                    addItemToWishlist(null); // Call directly instead of dispatching event to avoid recursion
+                }, 500);
+            }
         }
     } catch (error) {
         console.error('Error fetching product info:', error);
@@ -282,6 +365,13 @@ async function fetchProductInfo(url) {
         if (previewImageContainer) {
             previewImageContainer.classList.add('hidden');
         }
+
+        // If auto-add is enabled but we had an error, still try to add the item with URL
+        if (autoAddEnabled) {
+            setTimeout(() => {
+                addItemToWishlist(null); // Call directly instead of dispatching event to avoid recursion
+            }, 500);
+        }
     } finally {
         // Hide loading indicator
         linkLoadingDiv.classList.add('hidden');
@@ -291,14 +381,65 @@ async function fetchProductInfo(url) {
 // Function to paste URL from clipboard
 async function pasteFromClipboard() {
     try {
-        // Check if Clipboard API is supported
-        if (navigator.clipboard && navigator.clipboard.readText) {
+        // Check if Clipboard API is supported and we're in a secure context
+        const isSecureContext = window.isSecureContext;
+        const hasClipboardSupport = navigator.clipboard && navigator.clipboard.readText;
+
+        if (hasClipboardSupport && isSecureContext) {
             const clipboardText = await navigator.clipboard.readText();
 
             // Check if clipboard contains a valid URL
             const urlPattern = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
             if (urlPattern.test(clipboardText)) {
+                // If this is the first item and we don't have a list yet, create a new list
+                if (currentWishlist.length === 0 && !currentWishlistId) {
+                    const personName = personNameInput.value.trim();
+                    if (!personName) {
+                        alert('Please enter your name first');
+                        return;
+                    }
+
+                    try {
+                        // Create a new list on the server
+                        const response = await fetch('/api/lists', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                title: `${personName}'s Wishlist`,
+                                description: `Wishlist created by ${personName}`,
+                                creatorName: personName
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.id) {
+                            // Store the list ID and share token for future updates
+                            currentWishlistId = result.id;
+                            currentWishlistShareToken = result.shareToken;
+
+                            // Update the URL to the owner's view (without /check) for the owner
+                            const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                            window.history.pushState({}, '', ownerUrl);
+
+                            // Show the share link (with /check for guests)
+                            const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+                            shareLinkInput.value = shareableLink;
+                            shareLinkContainer.classList.remove('hidden');
+                        } else {
+                            throw new Error(result.error || 'Failed to create wishlist');
+                        }
+                    } catch (error) {
+                        console.error('Error creating wishlist:', error);
+                        linkStatusDiv.innerHTML = '<span class="text-red-400">⚠️ Error creating wishlist. Please try again.</span>';
+                        linkStatusDiv.classList.remove('hidden');
+                        return;
+                    }
+                }
+
                 // Paste the URL into the input field
                 itemLinkInput.value = clipboardText.trim();
 
@@ -315,15 +456,160 @@ async function pasteFromClipboard() {
                 linkStatusDiv.classList.remove('hidden');
             }
         } else {
-            // Show message if Clipboard API is not supported
-            linkStatusDiv.innerHTML = `<span class="text-red-400">⚠️ Clipboard API not supported in your browser</span>`;
-            linkStatusDiv.classList.remove('hidden');
+            // Fallback: Prompt user to manually paste the URL
+            const manualPaste = prompt('Clipboard API not supported in your environment.\n\nPlease copy your product URL, then paste it here:');
+
+            if (manualPaste !== null) { // User didn't cancel
+                const urlPattern = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
+
+                if (urlPattern.test(manualPaste)) {
+                    // If this is the first item and we don't have a list yet, create a new list
+                    if (currentWishlist.length === 0 && !currentWishlistId) {
+                        const personName = personNameInput.value.trim();
+                        if (!personName) {
+                            alert('Please enter your name first');
+                            return;
+                        }
+
+                        try {
+                            // Create a new list on the server
+                            const response = await fetch('/api/lists', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    title: `${personName}'s Wishlist`,
+                                    description: `Wishlist created by ${personName}`,
+                                    creatorName: personName
+                                })
+                            });
+
+                            const result = await response.json();
+
+                            if (result.id) {
+                                // Store the list ID and share token for future updates
+                                currentWishlistId = result.id;
+                                currentWishlistShareToken = result.shareToken;
+
+                                // Update the URL to the owner's view (without /check) for the owner
+                                const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                                window.history.pushState({}, '', ownerUrl);
+
+                                // Show the share link (with /check for guests)
+                                const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+                                shareLinkInput.value = shareableLink;
+                                shareLinkContainer.classList.remove('hidden');
+                            } else {
+                                throw new Error(result.error || 'Failed to create wishlist');
+                            }
+                        } catch (error) {
+                            console.error('Error creating wishlist:', error);
+                            linkStatusDiv.innerHTML = '<span class="text-red-400">⚠️ Error creating wishlist. Please try again.</span>';
+                            linkStatusDiv.classList.remove('hidden');
+                            return;
+                        }
+                    }
+
+                    // Paste the URL into the input field
+                    itemLinkInput.value = manualPaste.trim();
+
+                    // Show a message to the user
+                    linkStatusDiv.innerHTML = `<span class="text-green-400">✓ Link pasted manually</span>`;
+                    linkStatusDiv.classList.remove('hidden');
+
+                    // Enable auto-add and start the product info extraction
+                    autoAddEnabled = true;
+                    fetchProductInfo(manualPaste.trim());
+                } else {
+                    // Show message if no valid URL found
+                    linkStatusDiv.innerHTML = `<span class="text-orange-400">ℹ️ Invalid URL format. Please enter a valid URL.</span>`;
+                    linkStatusDiv.classList.remove('hidden');
+                }
+            } else {
+                // User cancelled the prompt
+                linkStatusDiv.innerHTML = `<span class="text-gray-500">ℹ️ Paste cancelled</span>`;
+                linkStatusDiv.classList.remove('hidden');
+            }
         }
     } catch (err) {
-        // Show error message
-        linkStatusDiv.innerHTML = `<span class="text-red-400">⚠️ Could not access clipboard: ${err.message}</span>`;
-        linkStatusDiv.classList.remove('hidden');
-        console.log('Could not access clipboard:', err);
+        // Fallback to manual paste if there's an error with the Clipboard API
+        console.log('Clipboard API error:', err);
+
+        const manualPaste = prompt('Error accessing clipboard. Please copy your product URL, then paste it here:');
+
+        if (manualPaste !== null) { // User didn't cancel
+            const urlPattern = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
+
+            if (urlPattern.test(manualPaste)) {
+                // Process the manually pasted URL similar to above
+                if (currentWishlist.length === 0 && !currentWishlistId) {
+                    const personName = personNameInput.value.trim();
+                    if (!personName) {
+                        alert('Please enter your name first');
+                        return;
+                    }
+
+                    try {
+                        // Create a new list on the server
+                        const response = await fetch('/api/lists', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                title: `${personName}'s Wishlist`,
+                                description: `Wishlist created by ${personName}`,
+                                creatorName: personName
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.id) {
+                            // Store the list ID and share token for future updates
+                            currentWishlistId = result.id;
+                            currentWishlistShareToken = result.shareToken;
+
+                            // Update the URL to the owner's view (without /check) for the owner
+                            const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                            window.history.pushState({}, '', ownerUrl);
+
+                            // Show the share link (with /check for guests)
+                            const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+                            shareLinkInput.value = shareableLink;
+                            shareLinkContainer.classList.remove('hidden');
+                        } else {
+                            throw new Error(result.error || 'Failed to create wishlist');
+                        }
+                    } catch (error) {
+                        console.error('Error creating wishlist:', error);
+                        linkStatusDiv.innerHTML = '<span class="text-red-400">⚠️ Error creating wishlist. Please try again.</span>';
+                        linkStatusDiv.classList.remove('hidden');
+                        return;
+                    }
+                }
+
+                // Paste the URL into the input field
+                itemLinkInput.value = manualPaste.trim();
+
+                // Show a message to the user
+                linkStatusDiv.innerHTML = `<span class="text-green-400">✓ Link pasted manually</span>`;
+                linkStatusDiv.classList.remove('hidden');
+
+                // Enable auto-add and start the product info extraction
+                autoAddEnabled = true;
+                fetchProductInfo(manualPaste.trim());
+            } else {
+                // Show message if no valid URL found
+                linkStatusDiv.innerHTML = `<span class="text-orange-400">ℹ️ Invalid URL format. Please enter a valid URL.</span>`;
+                linkStatusDiv.classList.remove('hidden');
+            }
+        } else {
+            // User cancelled the prompt
+            linkStatusDiv.innerHTML = `<span class="text-gray-500">ℹ️ Paste cancelled</span>`;
+            linkStatusDiv.classList.remove('hidden');
+        }
     }
 }
 
@@ -333,28 +619,41 @@ function extractPriceValue(priceString) {
 
     console.log('Processing price string:', priceString);
 
-    // Handle Ukrainian/Russian price formats (with spaces as thousand separators)
-    // Remove common currency symbols and non-numeric characters, keeping decimal points and commas
+    // Handle various international price formats
+    // Remove currency symbols and non-numeric characters, keeping decimal points, commas and spaces
     let cleanedPrice = priceString
         .replace(/[^\d\s,.]/g, '')  // Keep only digits, spaces, dots, commas
         .trim();
 
     console.log('Cleaned price string:', cleanedPrice);
 
-    // Handle different decimal separators (comma vs dot)
-    // If there are multiple commas and only one dot, comma might be a thousands separator
+    // Handle different decimal/thousands separators based on common patterns
+    // If there are multiple commas and only one dot, commas are likely thousands separators
     const commaCount = (cleanedPrice.match(/,/g) || []).length;
     const dotCount = (cleanedPrice.match(/\./g) || []).length;
 
     if (commaCount > 1 && dotCount <= 1) {
-        // Commas are likely thousands separators, remove them
+        // Commas are thousands separators, remove them
         cleanedPrice = cleanedPrice.replace(/,/g, '');
-    } else if (commaCount === 1 && dotCount >= 0) {
-        // Comma might be decimal separator, replace with dot
+    } else if (commaCount === 1 && dotCount === 0) {
+        // Comma is decimal separator, replace with dot
         cleanedPrice = cleanedPrice.replace(/,/g, '.');
+    } else if (commaCount > 1 && dotCount === 1) {
+        // If dot comes after commas, it's decimal separator, remove commas
+        // If dot comes before commas, comma might be decimal separator
+        const dotIndex = cleanedPrice.lastIndexOf('.');
+        const commaIndex = cleanedPrice.lastIndexOf(',');
+        if (commaIndex > dotIndex) {
+            // Last comma comes after last dot, treat comma as decimal separator
+            cleanedPrice = cleanedPrice.replace(/\./g, ''); // Remove dots (thousands)
+            cleanedPrice = cleanedPrice.replace(/,/g, '.'); // Replace last comma with dot
+        } else {
+            // Dot is decimal separator, remove commas
+            cleanedPrice = cleanedPrice.replace(/,/g, '');
+        }
     }
 
-    // Remove spaces (thousands separators in Ukrainian/Russian formats)
+    // Remove spaces (common in European formats)
     cleanedPrice = cleanedPrice.replace(/\s/g, '');
 
     console.log('After processing:', cleanedPrice);
@@ -395,8 +694,50 @@ async function addItemToWishlist(e) {
         return;
     }
 
+    // If this is the first item and we don't have a list yet, create a new list
+    if (currentWishlist.length === 0 && !currentWishlistId) {
+        try {
+            // Create a new list on the server
+            const response = await fetch('/api/lists', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: `${personName}'s Wishlist`,
+                    description: `Wishlist created by ${personName}`,
+                    creatorName: personName
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.id) {
+                // Store the list ID and share token for future updates
+                currentWishlistId = result.id;
+                currentWishlistShareToken = result.shareToken;
+
+                // Update the URL to include the list ID without page reload
+                const newUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                window.history.pushState({}, '', newUrl);
+
+                // Show the share link
+                shareLinkInput.value = newUrl;
+                shareLinkContainer.classList.remove('hidden');
+            } else {
+                throw new Error(result.error || 'Failed to create wishlist');
+            }
+        } catch (error) {
+            console.error('Error creating wishlist:', error);
+            linkStatusDiv.innerHTML = '<span class="text-red-400">⚠️ Error creating wishlist. Please try again.</span>';
+            linkStatusDiv.classList.remove('hidden');
+            return;
+        }
+    }
+
     const newItem = {
-        id: Date.now().toString(),
+        // Use a temporary ID that won't conflict with DB IDs
+        id: `temp_${Date.now()}`,
         name: itemName,
         link: itemLink,
         price: itemPrice ? parseFloat(itemPrice) : null,
@@ -410,9 +751,10 @@ async function addItemToWishlist(e) {
     // If we have a current list ID, add the item directly to the server list
     if (currentWishlistId) {
         try {
+            let response;
             if (itemLink) {
                 // Add item to the server list from URL
-                await fetch('/api/goods', {
+                response = await fetch('/api/goods', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -424,7 +766,7 @@ async function addItemToWishlist(e) {
                 });
             } else {
                 // Add item to the server list with manual data
-                await fetch('/api/goods', {
+                response = await fetch('/api/goods', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -439,9 +781,26 @@ async function addItemToWishlist(e) {
                 });
             }
 
+            // Get the server response to update the item ID
+            if (response.ok) {
+                const result = await response.json();
+                // Update the item's ID with the server-assigned ID
+                const itemIndex = currentWishlist.findIndex(item => item.id.startsWith('temp_'));
+                if (itemIndex !== -1) {
+                    currentWishlist[itemIndex].id = result.id.toString();
+                }
+            }
+
             // Update the share link to reflect the new item
             if (currentWishlistShareToken) {
                 const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+
+                // Update the URL to the owner's view (without /check) for the owner
+                const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                if (!window.location.pathname.includes(currentWishlistShareToken) || window.location.pathname.endsWith('/check')) {
+                    window.history.replaceState({}, '', ownerUrl);
+                }
+
                 shareLinkInput.value = shareableLink;
                 shareLinkContainer.classList.remove('hidden');
             }
@@ -480,8 +839,20 @@ function renderCurrentWishlist() {
     wishlistItemsGrid.innerHTML = '';
 
     if (currentWishlist.length === 0) {
-        wishlistItemsGrid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No items yet</div>';
+        wishlistItemsGrid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12"><span class="text-lg font-medium text-gray-500">No Goods</span></div>';
         updateStatistics(); // Update stats when list is empty
+
+        // Hide the generate link button when there are no items
+        const genLinkBtn = document.getElementById('generate-link-btn');
+        if (genLinkBtn) {
+            genLinkBtn.classList.add('hidden');
+        }
+
+        // Hide the reset form button when there are no items
+        const resetFormBtn = document.getElementById('reset-form-btn');
+        if (resetFormBtn) {
+            resetFormBtn.classList.add('hidden');
+        }
         return;
     }
 
@@ -492,17 +863,21 @@ function renderCurrentWishlist() {
 
         let priceDisplay = '';
         if (item.price) {
-            priceDisplay = `<div class="text-purple-300 font-medium">Price: $${item.price.toFixed(2)}</div>`;
+            priceDisplay = `<div class="text-green-800 font-medium">Price: $${item.price.toFixed(2)}</div>`;
         }
 
         let linkDisplay = '';
         if (item.link) {
-            linkDisplay = `<a href="${item.link}" target="_blank" class="text-blue-300 hover:text-blue-200 text-sm block truncate">View Item</a>`;
+            linkDisplay = `<a href="${item.link}" target="_blank" class="glass-button px-4 py-2 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action text-sm block text-center">Открыть</a>`;
         }
 
         let imageDisplay = '';
         if (item.image) {
-            imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-full h-32 object-contain rounded-lg mb-2" onerror="this.style.display='none';">`;
+            if (item.link) {
+                imageDisplay = `<a href="${item.link}" target="_blank"><img src="${item.image}" alt="${item.name}" class="w-full h-32 object-contain rounded-lg mb-2" onerror="this.style.display='none';"></a>`;
+            } else {
+                imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-full h-32 object-contain rounded-lg mb-2" onerror="this.style.display='none';">`;
+            }
         }
 
         card.innerHTML = `
@@ -516,8 +891,8 @@ function renderCurrentWishlist() {
                     <div class="mt-2">
                         ${linkDisplay}
                         <div class="mt-2">
-                            <button class="remove-btn w-full glass-button py-1.5 rounded text-white text-xs hover:bg-white/25 transition-all label-contrast" data-index="${index}">
-                                Remove
+                            <button class="remove-btn w-full bg-rose-300 hover:bg-rose-400 py-2 rounded-lg text-white font-medium transition-all primary-action text-sm" data-index="${index}">
+                                <span class="mobile-icon">✕ </span><span class="mobile-text">Remove</span>
                             </button>
                         </div>
                     </div>
@@ -527,13 +902,41 @@ function renderCurrentWishlist() {
 
         // Add event listener to remove button
         const removeBtn = card.querySelector('.remove-btn');
-        removeBtn.addEventListener('click', function() {
+        removeBtn.addEventListener('click', async function() {
+            const item = currentWishlist[index];
+
+            // Remove from server database if the item has an ID (was saved to server)
+            if (item.id) {
+                try {
+                    // Assuming the item.id corresponds to the goods ID in the database
+                    await fetch(`/api/goods/${item.id}`, {
+                        method: 'DELETE'
+                    });
+                } catch (error) {
+                    console.error('Error removing item from server:', error);
+                    // Still remove from local array even if server removal fails
+                }
+            }
+
+            // Remove from local array
             currentWishlist.splice(index, 1);
             renderCurrentWishlist();
         });
 
         wishlistItemsGrid.appendChild(card);
     });
+
+    // Show the generate link button when there are items
+    const genLinkBtn = document.getElementById('generate-link-btn');
+    if (genLinkBtn) {
+        genLinkBtn.classList.remove('hidden');
+    }
+
+    // Show the reset form button when there are items
+    const resetFormBtn = document.getElementById('reset-form-btn');
+    if (resetFormBtn) {
+        resetFormBtn.classList.remove('hidden');
+    }
 
     updateStatistics(); // Update stats after rendering
 }
@@ -590,80 +993,21 @@ function updateDisplayStatistics(items) {
 // Generate a shareable link for the wishlist using server API
 async function generateShareableLink() {
     if (currentWishlist.length === 0) {
-        alert('Please add at least one item to your wishlist');
+        console.log('No items to generate link for');
         return;
     }
 
     const personName = personNameInput.value.trim();
     if (!personName) {
-        alert('Please enter your name');
+        console.log('No person name provided');
         return;
     }
 
     try {
-        // Show loading state
-        const originalBtnText = generateLinkBtn.textContent;
-        generateLinkBtn.textContent = 'Generating...';
-        generateLinkBtn.disabled = true;
-
-        // Create a list on the server
-        const response = await fetch('/api/lists', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                title: `${personName}'s Wishlist`,
-                description: `Wishlist created by ${personName}`,
-                creatorName: personName
-            })
-        });
-
-        const result = await response.json();
-
-        if (result.id) {
-            // Store the list ID and share token for future updates
-            currentWishlistId = result.id;
-            currentWishlistShareToken = result.shareToken;
-
-            // Add all items to the list in parallel for better performance
-            const addItemsPromises = currentWishlist.map(item => {
-                if (item.link) {
-                    // Add item to the server list from URL
-                    return fetch('/api/goods', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            listId: result.id,
-                            url: item.link
-                        })
-                    });
-                } else {
-                    // Add item to the server list with manual data
-                    return fetch('/api/goods', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            listId: result.id,
-                            url: '', // No URL for manually entered items
-                            name: item.name,
-                            price: item.price,
-                            imageUrl: item.image
-                        })
-                    });
-                }
-            });
-
-            // Wait for all items to be added
-            await Promise.all(addItemsPromises);
-
-            // Use the new shareable link format (already includes /check suffix from server)
-            const shareableLink = result.shareableLink;
-
+        // If we already have a list, just update the share link
+        if (currentWishlistId && currentWishlistShareToken) {
+            // Just update the share link since the list already exists (with /check for guests)
+            const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
             shareLinkInput.value = shareableLink;
             shareLinkContainer.classList.remove('hidden');
 
@@ -672,15 +1016,83 @@ async function generateShareableLink() {
             linkStatusDiv.innerHTML = `<span class="text-green-400">✓ ${translations[currentLang].shareableLinkGenerated}</span>`;
             linkStatusDiv.classList.remove('hidden');
         } else {
-            throw new Error(result.error || 'Failed to create wishlist');
+            // Create a list on the server
+            const response = await fetch('/api/lists', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: `${personName}'s Wishlist`,
+                    description: `Wishlist created by ${personName}`,
+                    creatorName: personName
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.id) {
+                // Store the list ID and share token for future updates
+                currentWishlistId = result.id;
+                currentWishlistShareToken = result.shareToken;
+
+                // Update the URL to the owner's view (without /check) for the owner
+                const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                window.history.pushState({}, '', ownerUrl);
+
+                // Add all items to the list in parallel for better performance
+                const addItemsPromises = currentWishlist.map(item => {
+                    if (item.link) {
+                        // Add item to the server list from URL
+                        return fetch('/api/goods', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                listId: result.id,
+                                url: item.link
+                            })
+                        });
+                    } else {
+                        // Add item to the server list with manual data
+                        return fetch('/api/goods', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                listId: result.id,
+                                url: '', // No URL for manually entered items
+                                name: item.name,
+                                price: item.price,
+                                imageUrl: item.image
+                            })
+                        });
+                    }
+                });
+
+                // Wait for all items to be added
+                await Promise.all(addItemsPromises);
+
+                // Use the new shareable link format (with /check for guests)
+                const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+
+                shareLinkInput.value = shareableLink;
+                shareLinkContainer.classList.remove('hidden');
+
+                // Show success message
+                const currentLang = document.getElementById('language-selector').value || 'en';
+                linkStatusDiv.innerHTML = `<span class="text-green-400">✓ ${translations[currentLang].shareableLinkGenerated}</span>`;
+                linkStatusDiv.classList.remove('hidden');
+            } else {
+                throw new Error(result.error || 'Failed to create wishlist');
+            }
         }
     } catch (error) {
         console.error('Error generating shareable link:', error);
-        alert('Error generating shareable link: ' + error.message);
-    } finally {
-        // Restore button state
-        generateLinkBtn.textContent = 'Generate Shareable Link';
-        generateLinkBtn.disabled = false;
+        linkStatusDiv.innerHTML = `<span class="text-red-400">⚠️ Error generating link: ${error.message}</span>`;
+        linkStatusDiv.classList.remove('hidden');
     }
 }
 
@@ -688,7 +1100,7 @@ async function generateShareableLink() {
 function copyShareableLink() {
     shareLinkInput.select();
     document.execCommand('copy');
-    
+
     // Show feedback
     const currentLang = document.getElementById('language-selector').value || 'en';
     const originalText = copyLinkBtn.textContent;
@@ -698,62 +1110,53 @@ function copyShareableLink() {
     }, 2000);
 }
 
-// Load wishlist from a shared link
-async function loadWishlistFromLink() {
-    const link = viewLinkInput.value.trim();
-    if (!link) {
-        alert('Please enter a wishlist link');
-        return;
-    }
-
-    try {
-        // Extract wishlist ID from the URL
-        // Support multiple formats: /?wishlist=ID, /wishlist/ID, /lists/ID, /lists/ID/check
-        let wishlistId = null;
-
-        // Check for the old format: ?wishlist=ID
-        const urlParams = new URLSearchParams(link.split('?')[1]);
-        wishlistId = urlParams.get('wishlist');
-
-        // If not found in query params, check for the various path formats
-        if (!wishlistId) {
-            const pathParts = link.split('/');
-            // Check for /lists/ID or /lists/ID/check format
-            if (pathParts.includes('lists')) {
-                const listsIndex = pathParts.indexOf('lists');
-                if (pathParts[listsIndex + 1] && pathParts[listsIndex + 1] !== 'check') {
-                    wishlistId = pathParts[listsIndex + 1];
-                }
-            }
-            // If still not found, check for the legacy format: /wishlist/ID
-            else if (pathParts.includes('wishlist')) {
-                const wishlistIndex = pathParts.indexOf('wishlist');
-                if (pathParts[wishlistIndex + 1]) {
-                    wishlistId = pathParts[wishlistIndex + 1];
-                }
-            }
-        }
-
-        if (!wishlistId) {
-            alert('Invalid wishlist link');
-            return;
-        }
-
-        // Load the wishlist from the server
-        const response = await fetch(`/api/lists/${wishlistId}`);
-        const wishlistData = await response.json();
-
-        if (response.ok) {
-            // Display the loaded wishlist
-            displayWishlistFromServer(wishlistData, wishlistId);
-        } else {
-            alert('Wishlist not found: ' + wishlistData.error);
-        }
-    } catch (error) {
-        console.error('Error loading wishlist:', error);
-        alert('Error loading wishlist: ' + error.message);
-    }
+// Toggle the share dropdown menu
+function toggleShareDropdown() {
+    const dropdown = document.getElementById('share-dropdown');
+    dropdown.classList.toggle('hidden');
 }
+
+// Share link via WhatsApp
+function shareViaWhatsApp() {
+    const shareLink = shareLinkInput.value;
+    const encodedLink = encodeURIComponent(shareLink);
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent('Check out my wishlist: ' + shareLink)}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+// Share link via Telegram
+function shareViaTelegram() {
+    const shareLink = shareLinkInput.value;
+    const encodedLink = encodeURIComponent(shareLink);
+    const telegramUrl = `https://t.me/share/url?url=${encodedLink}&text=${encodeURIComponent('Check out my wishlist: ')}`;
+    window.open(telegramUrl, '_blank');
+}
+
+// Share link via Facebook
+function shareViaFacebook() {
+    const shareLink = shareLinkInput.value;
+    const encodedLink = encodeURIComponent(shareLink);
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
+    window.open(facebookUrl, '_blank');
+}
+
+// Share link via Twitter
+function shareViaTwitter() {
+    const shareLink = shareLinkInput.value;
+    const encodedLink = encodeURIComponent(shareLink);
+    const twitterUrl = `https://twitter.com/intent/tweet?url=${encodedLink}&text=${encodeURIComponent('Check out my wishlist: ')}`;
+    window.open(twitterUrl, '_blank');
+}
+
+// Share link via Email
+function shareViaEmail() {
+    const shareLink = shareLinkInput.value;
+    const subject = encodeURIComponent('Check out my wishlist');
+    const body = encodeURIComponent(`Check out my wishlist: ${shareLink}`);
+    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = mailtoUrl;
+}
+
 
 // Display the loaded wishlist from server data
 function displayWishlistFromServer(wishlistData, wishlistId) {
@@ -770,76 +1173,104 @@ function displayWishlistFromServer(wishlistData, wishlistId) {
         bookedBy: good.reservedByGuest ? good.reservedByGuest.name : null
     }));
 
-    items.forEach((item, index) => {
-        const card = document.createElement('div');
-        card.className = `wishlist-item glass-card p-4 rounded-xl ${item.bookedBy ? 'booked-item' : ''}`;
-        card.dataset.itemId = item.id;
+    if (items.length === 0) {
+        displayItemsGrid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12"><span class="text-lg font-medium text-gray-500">No Goods</span></div>';
+    } else {
+        items.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = `wishlist-item glass-card p-4 rounded-xl ${item.bookedBy ? 'booked-item' : ''}`;
+            card.dataset.itemId = item.id;
 
-        let priceDisplay = '';
-        if (item.price) {
-            priceDisplay = `<div class="text-purple-300 font-medium label-contrast">Price: $${item.price.toFixed(2)}</div>`;
-        }
+            let priceDisplay = '';
+            if (item.price) {
+                priceDisplay = `<div class="text-green-800 font-medium label-contrast">Price: $${item.price.toFixed(2)}</div>`;
+            }
 
-        let linkDisplay = '';
-        if (item.link) {
-            linkDisplay = `<a href="${item.link}" target="_blank" class="text-blue-300 hover:text-blue-200 text-sm block truncate label-contrast">View Item</a>`;
-        }
+            let linkDisplay = '';
+            if (item.link) {
+                linkDisplay = `<a href="${item.link}" target="_blank" class="glass-button px-4 py-2 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action text-sm block text-center">Открыть</a>`;
+            }
 
-        let imageDisplay = '';
-        if (item.image) {
-            imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-full h-32 object-contain rounded-lg mb-2" onerror="this.style.display='none';">`;
-        }
+            let imageDisplay = '';
+            if (item.image) {
+                if (item.link) {
+                    imageDisplay = `<a href="${item.link}" target="_blank"><img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded-lg" onerror="this.style.display='none';"></a>`;
+                } else {
+                    imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded-lg" onerror="this.style.display='none';">`;
+                }
+            }
 
-        let bookerDisplay = '';
-        let bookedItemClass = '';
-        let buttonClass = 'glass-button hover:bg-white/25';
+            let bookerDisplay = '';
+            let bookedItemClass = '';
+            let buttonClass = 'glass-button hover:bg-white/25';
 
-        if (item.bookedBy) {
-            // Generate a color based on the booker's name
-            const colorClass = getColorForName(item.bookedBy);
-            bookedItemClass = `booked-item ${colorClass}`;
-            bookerDisplay = `<div class="text-sm mb-2 label-contrast">Booked by: ${item.bookedBy}</div>`;
-            buttonClass = 'bg-gray-500 cursor-not-allowed';
-        } else {
-            bookedItemClass = '';
-        }
+            if (item.bookedBy) {
+                // Generate a color based on the booker's name
+                const colorClass = getColorForName(item.bookedBy);
+                bookedItemClass = `booked-item ${colorClass}`;
+                bookerDisplay = `<div class="text-sm mb-2 label-contrast">Booked by: ${item.bookedBy}</div>`;
+                buttonClass = 'bg-gray-500 cursor-not-allowed';
+            } else {
+                bookedItemClass = '';
+            }
 
-        card.className = `wishlist-item glass-card p-4 rounded-xl ${bookedItemClass}`;
+            card.className = `wishlist-item glass-card p-4 rounded-xl ${bookedItemClass}`;
 
-        card.innerHTML = `
-            <div class="flex flex-col h-full">
-                ${imageDisplay}
-                <div class="flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="font-medium text-white text-sm mb-1 line-clamp-2 label-contrast">${item.name}</div>
-                        ${priceDisplay}
-                        ${linkDisplay}
-                        ${bookerDisplay}
-                    </div>
-                    <div class="mt-2">
-                        <button class="book-btn w-full py-1.5 rounded text-white text-xs transition-all ${buttonClass} label-contrast"
-                                data-item-id="${item.id}"
-                                data-wishlist-id="${wishlistId}"
-                                ${item.bookedBy ? 'disabled' : ''}>
-                            ${item.bookedBy ? 'Booked' : 'Book Item'}
-                        </button>
+            card.innerHTML = `
+                <div class="flex items-center gap-4 h-full">
+                    ${imageDisplay}
+                    <div class="flex-1 flex flex-col justify-between min-w-0">
+                        <div class="mb-2">
+                            <div class="font-medium text-white text-sm mb-1 line-clamp-2 label-contrast">${item.name}</div>
+                            ${priceDisplay}
+                            ${bookerDisplay}
+                        </div>
+                        <div class="space-y-2">
+                            ${linkDisplay}
+                            <button class="book-btn w-full bg-orange-500 hover:bg-orange-600 py-2.5 rounded-lg text-white font-medium transition-all primary-action text-base"
+                                    data-item-id="${item.id}"
+                                    data-wishlist-id="${wishlistId}"
+                                    ${item.bookedBy ? 'disabled' : ''}>
+                                <span class="mobile-icon">${item.bookedBy ? '✓' : '✓ '} </span><span class="mobile-text">${item.bookedBy ? 'Booked' : 'Book Item'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        // Add event listener to book button
-        const bookBtn = card.querySelector('.book-btn');
-        if (!item.bookedBy) {
-            bookBtn.addEventListener('click', function() {
-                openBookingModal(item, wishlistId);
-            });
+            // Add event listener to book button
+            const bookBtn = card.querySelector('.book-btn');
+            if (!item.bookedBy) {
+                bookBtn.addEventListener('click', function() {
+                    openBookingModal(item, wishlistId);
+                });
+            }
+
+            displayItemsGrid.appendChild(card);
+        });
+    }
+
+    // Check if we're on the creator's page or guest's page
+    const currentPath = window.location.pathname;
+    const pathParts = currentPath.split('/');
+    let isCreatorView = false;
+
+    if (pathParts.includes('lists')) {
+        const listsIndex = pathParts.indexOf('lists');
+        if (pathParts[listsIndex + 1] && pathParts[listsIndex + 1] !== 'check') {
+            if (pathParts[listsIndex + 2] !== 'check') {
+                isCreatorView = true;
+            }
         }
+    }
 
-        displayItemsGrid.appendChild(card);
-    });
-
-    displayWishlistSection.classList.remove('hidden');
+    // Only show the display wishlist section if it's guest view
+    if (!isCreatorView) {
+        displayWishlistSection.classList.remove('hidden');
+    } else {
+        // For creator view, hide the display section
+        displayWishlistSection.classList.add('hidden');
+    }
 
     // Update statistics for the displayed wishlist
     updateDisplayStatistics(items);
@@ -847,8 +1278,10 @@ function displayWishlistFromServer(wishlistData, wishlistId) {
     // Show the statistics section
     document.getElementById('statistics-section').classList.remove('hidden');
 
-    // Scroll to the wishlist section
-    displayWishlistSection.scrollIntoView({ behavior: 'smooth' });
+    // Scroll to the wishlist section if it's visible
+    if (!isCreatorView) {
+        displayWishlistSection.scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 // Function to generate a color class based on the name
@@ -877,6 +1310,7 @@ function getColorForName(name) {
                 background-color: hsl(${hue}, 70%, 85%) !important;
                 border-color: hsl(${hue}, 70%, 65%) !important;
                 color: hsl(${hue}, 50%, 20%) !important;
+                opacity: 0.75 !important;
             }
             .${colorClass} .book-btn {
                 background-color: hsl(${hue}, 70%, 65%) !important;
@@ -893,74 +1327,82 @@ function displayWishlist(wishlistData, wishlistId) {
     ownerNameSpan.textContent = wishlistData.owner;
     displayItemsGrid.innerHTML = '';
 
-    wishlistData.items.forEach((item, index) => {
-        const card = document.createElement('div');
-        card.className = `wishlist-item glass-card p-4 rounded-xl ${item.bookedBy ? 'booked-item' : ''}`;
-        card.dataset.itemId = item.id;
+    if (wishlistData.items.length === 0) {
+        displayItemsGrid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12"><span class="text-lg font-medium text-gray-500">No Goods</span></div>';
+    } else {
+        wishlistData.items.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = `wishlist-item glass-card p-4 rounded-xl ${item.bookedBy ? 'booked-item' : ''}`;
+            card.dataset.itemId = item.id;
 
-        let priceDisplay = '';
-        if (item.price) {
-            priceDisplay = `<div class="text-purple-300 font-medium label-contrast">Price: $${item.price.toFixed(2)}</div>`;
-        }
+            let priceDisplay = '';
+            if (item.price) {
+                priceDisplay = `<div class="text-green-800 font-medium label-contrast">Price: $${item.price.toFixed(2)}</div>`;
+            }
 
-        let linkDisplay = '';
-        if (item.link) {
-            linkDisplay = `<a href="${item.link}" target="_blank" class="text-blue-300 hover:text-blue-200 text-sm block truncate label-contrast">View Item</a>`;
-        }
+            let linkDisplay = '';
+            if (item.link) {
+                linkDisplay = `<a href="${item.link}" target="_blank" class="glass-button px-4 py-2 rounded-lg text-white font-medium hover:bg-indigo-600 transition-all primary-action text-sm block text-center">Открыть</a>`;
+            }
 
-        let imageDisplay = '';
-        if (item.image) {
-            imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-full h-32 object-contain rounded-lg mb-2" onerror="this.style.display='none';">`;
-        }
+            let imageDisplay = '';
+            if (item.image) {
+                if (item.link) {
+                    imageDisplay = `<a href="${item.link}" target="_blank"><img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded-lg" onerror="this.style.display='none';"></a>`;
+                } else {
+                    imageDisplay = `<img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded-lg" onerror="this.style.display='none';">`;
+                }
+            }
 
-        let bookerDisplay = '';
-        let bookedItemClass = '';
-        let buttonClass = 'glass-button hover:bg-white/25';
+            let bookerDisplay = '';
+            let bookedItemClass = '';
+            let buttonClass = 'glass-button hover:bg-white/25';
 
-        if (item.bookedBy) {
-            // Generate a color based on the booker's name
-            const colorClass = getColorForName(item.bookedBy);
-            bookedItemClass = `booked-item ${colorClass}`;
-            bookerDisplay = `<div class="text-sm mb-2 label-contrast">Booked by: ${item.bookedBy}</div>`;
-            buttonClass = 'bg-gray-500 cursor-not-allowed';
-        } else {
-            bookedItemClass = '';
-        }
+            if (item.bookedBy) {
+                // Generate a color based on the booker's name
+                const colorClass = getColorForName(item.bookedBy);
+                bookedItemClass = `booked-item ${colorClass}`;
+                bookerDisplay = `<div class="text-sm mb-2 label-contrast">Booked by: ${item.bookedBy}</div>`;
+                buttonClass = 'bg-gray-500 cursor-not-allowed';
+            } else {
+                bookedItemClass = '';
+            }
 
-        card.className = `wishlist-item glass-card p-4 rounded-xl ${bookedItemClass}`;
+            card.className = `wishlist-item glass-card p-4 rounded-xl ${bookedItemClass}`;
 
-        card.innerHTML = `
-            <div class="flex flex-col h-full">
-                ${imageDisplay}
-                <div class="flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="font-medium text-white text-sm mb-1 line-clamp-2 label-contrast">${item.name}</div>
-                        ${priceDisplay}
-                        ${linkDisplay}
-                        ${bookerDisplay}
-                    </div>
-                    <div class="mt-2">
-                        <button class="book-btn w-full py-1.5 rounded text-white text-xs transition-all ${buttonClass} label-contrast"
-                                data-item-id="${item.id}"
-                                data-wishlist-id="${wishlistId}"
-                                ${item.bookedBy ? 'disabled' : ''}>
-                            ${item.bookedBy ? 'Booked' : 'Book Item'}
-                        </button>
+            card.innerHTML = `
+                <div class="flex items-center gap-4 h-full">
+                    ${imageDisplay}
+                    <div class="flex-1 flex flex-col justify-between min-w-0">
+                        <div class="mb-2">
+                            <div class="font-medium text-white text-sm mb-1 line-clamp-2 label-contrast">${item.name}</div>
+                            ${priceDisplay}
+                            ${bookerDisplay}
+                        </div>
+                        <div class="space-y-2">
+                            ${linkDisplay}
+                            <button class="book-btn w-full bg-orange-500 hover:bg-orange-600 py-2.5 rounded-lg text-white font-medium transition-all primary-action text-base"
+                                    data-item-id="${item.id}"
+                                    data-wishlist-id="${wishlistId}"
+                                    ${item.bookedBy ? 'disabled' : ''}>
+                                <span class="mobile-icon">${item.bookedBy ? '✓' : '✓ '} </span><span class="mobile-text">${item.bookedBy ? 'Booked' : 'Book Item'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
-        // Add event listener to book button
-        const bookBtn = card.querySelector('.book-btn');
-        if (!item.bookedBy) {
-            bookBtn.addEventListener('click', function() {
-                openBookingModal(item, wishlistId);
-            });
-        }
+            // Add event listener to book button
+            const bookBtn = card.querySelector('.book-btn');
+            if (!item.bookedBy) {
+                bookBtn.addEventListener('click', function() {
+                    openBookingModal(item, wishlistId);
+                });
+            }
 
-        displayItemsGrid.appendChild(card);
-    });
+            displayItemsGrid.appendChild(card);
+        });
+    }
 
     displayWishlistSection.classList.remove('hidden');
 
@@ -979,7 +1421,7 @@ function openBookingModal(item, wishlistId) {
     bookingItemName.textContent = item.name;
     bookingModal.dataset.itemId = item.id;
     bookingModal.dataset.wishlistId = wishlistId;
-    
+
     // Pre-fill the booker's name from localStorage if available
     const savedBookerName = localStorage.getItem(USER_NAME_KEY);
     if (savedBookerName) {
@@ -987,13 +1429,76 @@ function openBookingModal(item, wishlistId) {
     } else {
         bookerNameInput.value = ''; // Clear the field if no saved name
     }
-    
+
+    // Update the modal title based on whether the item is already booked by the user
+    const confirmBookingBtn = document.getElementById('confirm-booking-btn');
+    if (item.bookedBy && item.bookedBy === savedBookerName) {
+        confirmBookingBtn.textContent = 'Unbook Item';
+    } else {
+        confirmBookingBtn.textContent = 'Book Item';
+    }
+
     bookingModal.classList.remove('hidden');
 }
 
 // Close booking modal
 function closeBookingModal() {
     bookingModal.classList.add('hidden');
+}
+
+// Reset form function - clears form fields, removes list from server, and navigates to /lists
+async function resetForm() {
+    if (!confirm('Are you sure you want to reset the form? This will clear all items and remove the list from the server.')) {
+        return;
+    }
+
+    try {
+        // If there's an existing list, delete it from the server
+        if (currentWishlistId) {
+            await fetch(`/api/lists/${currentWishlistId}`, {
+                method: 'DELETE'
+            });
+        }
+
+        // Clear all form fields
+        personNameInput.value = 'Имениник...';
+        itemNameInput.value = '';
+        itemLinkInput.value = '';
+        itemPriceInput.value = '';
+
+        // Clear any stored image data
+        delete itemLinkInput.dataset.image;
+
+        // Clear the wishlist items
+        currentWishlist = [];
+        renderCurrentWishlist();
+
+        // Hide share link container
+        shareLinkContainer.classList.add('hidden');
+
+        // Reset global variables
+        currentWishlistId = null;
+        currentWishlistShareToken = null;
+
+        // Update URL to /lists without page reload
+        window.history.pushState({}, '', '/lists');
+
+        // Show appropriate UI sections
+        document.getElementById('create-wishlist').classList.remove('hidden');
+        document.getElementById('display-wishlist').classList.add('hidden');
+
+        // Update the URL to /lists without page reload
+        window.history.pushState({}, '', '/lists');
+
+        // Clear any status messages
+        linkStatusDiv.classList.add('hidden');
+
+        // The button visibility will be handled by renderCurrentWishlist()
+
+    } catch (error) {
+        console.error('Error resetting form:', error);
+        alert('Error resetting form: ' + error.message);
+    }
 }
 
 // Confirm booking
@@ -1011,38 +1516,81 @@ async function confirmBooking() {
         // Save user's name to localStorage
         localStorage.setItem(USER_NAME_KEY, bookerName);
 
-        // Update the item on the server
-        const response = await fetch(`/api/goods/${itemId}/reserve`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                guestName: bookerName
-            })
-        });
+        // Check if this is an unbooking (if the item is already booked by the same user)
+        const wishlistResponse = await fetch(`/api/lists/${wishlistId}`);
+        const wishlistData = await wishlistResponse.json();
 
-        if (response.ok) {
-            // Reload the wishlist from the server
-            const wishlistResponse = await fetch(`/api/lists/${wishlistId}`);
-            const wishlistData = await wishlistResponse.json();
+        if (!wishlistResponse.ok) {
+            throw new Error('Failed to load wishlist data');
+        }
 
-            if (wishlistResponse.ok) {
-                // Update the displayed wishlist
-                displayWishlistFromServer(wishlistData, wishlistId);
+        // Find the item to check if it's already booked by the same user
+        const item = wishlistData.goods.find(good => good.id == itemId);
+
+        if (item && item.reservedByGuest && item.reservedByGuest.name === bookerName) {
+            // This is an unbooking request - the same user wants to unbook
+            const unbookResponse = await fetch(`/api/goods/${itemId}/unreserve`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    guestName: bookerName
+                })
+            });
+
+            if (unbookResponse.ok) {
+                // Reload the wishlist from the server
+                const updatedWishlistResponse = await fetch(`/api/lists/${wishlistId}`);
+                const updatedWishlistData = await updatedWishlistResponse.json();
+
+                if (updatedWishlistResponse.ok) {
+                    // Update the displayed wishlist
+                    displayWishlistFromServer(updatedWishlistData, wishlistId);
+                } else {
+                    alert('Failed to reload wishlist after unbooking');
+                }
+
+                // Close the modal
+                closeBookingModal();
             } else {
-                alert('Failed to reload wishlist after booking');
+                const errorData = await unbookResponse.json();
+                alert('Error unbooking item: ' + (errorData.error || 'Unknown error'));
             }
-
-            // Close the modal
-            closeBookingModal();
         } else {
-            const errorData = await response.json();
-            alert('Error booking item: ' + (errorData.error || 'Unknown error'));
+            // This is a booking request
+            const response = await fetch(`/api/goods/${itemId}/reserve`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    guestName: bookerName
+                })
+            });
+
+            if (response.ok) {
+                // Reload the wishlist from the server
+                const wishlistResponse = await fetch(`/api/lists/${wishlistId}`);
+                const wishlistData = await wishlistResponse.json();
+
+                if (wishlistResponse.ok) {
+                    // Update the displayed wishlist
+                    displayWishlistFromServer(wishlistData, wishlistId);
+                } else {
+                    alert('Failed to reload wishlist after booking');
+                }
+
+                // Close the modal
+                closeBookingModal();
+            } else {
+                const errorData = await response.json();
+                alert('Error booking item: ' + (errorData.error || 'Unknown error'));
+            }
         }
     } catch (error) {
-        console.error('Error booking item:', error);
-        alert('Error booking item: ' + error.message);
+        console.error('Error processing booking/unbooking:', error);
+        alert('Error processing request: ' + error.message);
     }
 }
 
@@ -1089,11 +1637,12 @@ window.addEventListener('load', function() {
 
     // Handle home page vs lists page
     if (currentPath === '/') {
-        // Home page - show welcome screen with create button
+        // Home page - show welcome screen with create button, hide other sections
         document.getElementById('home-page').classList.remove('hidden');
+        document.getElementById('create-section').classList.add('hidden');
         document.getElementById('create-wishlist').classList.add('hidden');
-        document.getElementById('view-wishlist').classList.add('hidden');
         document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
 
         // Set up the create button to navigate to /lists
         const createBtn = document.getElementById('create-wishlist-btn');
@@ -1103,11 +1652,12 @@ window.addEventListener('load', function() {
             };
         }
     } else if (currentPath === '/lists') {
-        // Lists creation page - show the creation interface
+        // Lists creation page - show the creation interface, hide homepage
         document.getElementById('home-page').classList.add('hidden');
+        document.getElementById('create-section').classList.remove('hidden');
         document.getElementById('create-wishlist').classList.remove('hidden');
-        document.getElementById('view-wishlist').classList.remove('hidden');
         document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
 
         // Ensure generate link button is enabled in create mode
         const generateLinkBtn = document.getElementById('generate-link-btn');
@@ -1116,15 +1666,55 @@ window.addEventListener('load', function() {
             generateLinkBtn.title = '';
             generateLinkBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             generateLinkBtn.classList.add('hover:bg-indigo-600');
+
+            // Show/hide the button based on whether there are items
+            if (currentWishlist && currentWishlist.length > 0) {
+                generateLinkBtn.classList.remove('hidden');
+            } else {
+                generateLinkBtn.classList.add('hidden');
+            }
+        }
+
+        // Show the reset form button in create mode, but only if there are items
+        const resetFormBtn = document.getElementById('reset-form-btn');
+        if (resetFormBtn) {
+            if (currentWishlist && currentWishlist.length > 0) {
+                resetFormBtn.classList.remove('hidden');
+            } else {
+                resetFormBtn.classList.add('hidden');
+            }
+        }
+
+        // Adjust the right section to use 2/3 width when left section is visible
+        const rightSection = document.getElementById('right-section');
+        if (rightSection) {
+            rightSection.classList.remove('w-full');
+            rightSection.classList.add('lg:w-2/3');
         }
     } else if (wishlistId) {
         // Auto-load the wishlist if ID is present in URL
         if (isCreatorView) {
-            // For creator view (/lists/:listId), show both creation and view sections
+            // For creator view (/lists/:listId), show creation section only, hide display section
             document.getElementById('home-page').classList.add('hidden');
+            document.getElementById('create-section').classList.remove('hidden');
             document.getElementById('create-wishlist').classList.remove('hidden');
-            document.getElementById('view-wishlist').classList.remove('hidden');
-            document.getElementById('display-wishlist').classList.remove('hidden');
+            document.getElementById('display-wishlist').classList.add('hidden');
+
+            // Show the current wishlist section on creator view
+            document.getElementById('current-wishlist').classList.remove('hidden');
+
+            // Show the flex container that holds the create sections
+            const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+            if (createWishlistParent) {
+                createWishlistParent.classList.remove('hidden');
+            }
+
+            // Adjust the right section to use 2/3 width when left section is visible
+            const rightSection = document.getElementById('right-section');
+            if (rightSection) {
+                rightSection.classList.remove('w-full');
+                rightSection.classList.add('lg:w-2/3');
+            }
 
             // Keep generate link button enabled for creator (they can update the share link)
             const generateLinkBtn = document.getElementById('generate-link-btn');
@@ -1133,22 +1723,53 @@ window.addEventListener('load', function() {
                 generateLinkBtn.title = '';
                 generateLinkBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 generateLinkBtn.classList.add('hover:bg-indigo-600');
+
+                // Show/hide the button based on whether there are items
+                if (currentWishlist && currentWishlist.length > 0) {
+                    generateLinkBtn.classList.remove('hidden');
+                } else {
+                    generateLinkBtn.classList.add('hidden');
+                }
+            }
+
+            // Show the reset form button for creator
+            const resetFormBtn = document.getElementById('reset-form-btn');
+            if (resetFormBtn) {
+                resetFormBtn.classList.remove('hidden');
             }
         } else {
             // For guest view (/lists/:listId/check or legacy formats), hide creation and show view
             document.getElementById('home-page').classList.add('hidden');
+            document.getElementById('create-section').classList.add('hidden');
             document.getElementById('create-wishlist').classList.add('hidden');
-            document.getElementById('view-wishlist').classList.remove('hidden');
             document.getElementById('display-wishlist').classList.remove('hidden');
 
-            // Disable the generate link button in guest view mode
+            // Also hide the current wishlist section on guest view
+            document.getElementById('current-wishlist').classList.add('hidden');
+
+            // Hide the flex container that holds the create sections
+            const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+            if (createWishlistParent) {
+                createWishlistParent.classList.add('hidden');
+            }
+
+            // Adjust the right section to take full width when left section is hidden
+            const rightSection = document.getElementById('right-section');
+            if (rightSection) {
+                rightSection.classList.remove('lg:w-2/3');
+                rightSection.classList.add('w-full');
+            }
+
+            // Hide the generate link button in guest view mode
             const generateLinkBtn = document.getElementById('generate-link-btn');
             if (generateLinkBtn) {
-                generateLinkBtn.disabled = true;
-                generateLinkBtn.title = 'Sharing is disabled when viewing a wishlist';
-                // Optionally, change appearance to indicate it's disabled
-                generateLinkBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                generateLinkBtn.classList.remove('hover:bg-indigo-600');
+                generateLinkBtn.classList.add('hidden');
+            }
+
+            // Hide the reset form button in guest view mode
+            const resetFormBtn = document.getElementById('reset-form-btn');
+            if (resetFormBtn) {
+                resetFormBtn.classList.add('hidden');
             }
         }
 
@@ -1156,9 +1777,19 @@ window.addEventListener('load', function() {
     } else {
         // Default fallback - show creation interface
         document.getElementById('home-page').classList.add('hidden');
+        document.getElementById('create-section').classList.remove('hidden');
         document.getElementById('create-wishlist').classList.remove('hidden');
-        document.getElementById('view-wishlist').classList.remove('hidden');
         document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
+
+        // Show the current wishlist section in default create mode
+        document.getElementById('current-wishlist').classList.remove('hidden');
+
+        // Show the flex container that holds the create sections
+        const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+        if (createWishlistParent) {
+            createWishlistParent.classList.remove('hidden');
+        }
 
         // Ensure generate link button is enabled in create mode
         const generateLinkBtn = document.getElementById('generate-link-btn');
@@ -1167,6 +1798,136 @@ window.addEventListener('load', function() {
             generateLinkBtn.title = '';
             generateLinkBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             generateLinkBtn.classList.add('hover:bg-indigo-600');
+
+            // Show/hide the button based on whether there are items
+            if (currentWishlist && currentWishlist.length > 0) {
+                generateLinkBtn.classList.remove('hidden');
+            } else {
+                generateLinkBtn.classList.add('hidden');
+            }
+        }
+
+        // Show the reset form button in create mode, but only if there are items
+        const resetFormBtn = document.getElementById('reset-form-btn');
+        if (resetFormBtn) {
+            if (currentWishlist && currentWishlist.length > 0) {
+                resetFormBtn.classList.remove('hidden');
+            } else {
+                resetFormBtn.classList.add('hidden');
+            }
+        }
+
+        // Adjust the right section to use 2/3 width when left section is visible
+        const rightSection = document.getElementById('right-section');
+        if (rightSection) {
+            rightSection.classList.remove('w-full');
+            rightSection.classList.add('lg:w-2/3');
+        }
+    }
+});
+
+// Also handle popstate events to maintain state when navigating back/forward
+window.addEventListener('popstate', function(event) {
+    // Reload the page content based on the current URL
+    const currentPath = window.location.pathname;
+    const pathParts = currentPath.split('/');
+    let wishlistId = null;
+    let isCreatorView = false;
+
+    if (pathParts.includes('lists')) {
+        const listsIndex = pathParts.indexOf('lists');
+        if (pathParts[listsIndex + 1] && pathParts[listsIndex + 1] !== 'check') {
+            wishlistId = pathParts[listsIndex + 1];
+            if (pathParts[listsIndex + 2] !== 'check') {
+                isCreatorView = true;
+            }
+        }
+    }
+
+    // Handle different page views based on URL
+    if (currentPath === '/') {
+        // Home page - show welcome screen with create button, hide other sections
+        document.getElementById('home-page').classList.remove('hidden');
+        document.getElementById('create-section').classList.add('hidden');
+        document.getElementById('create-wishlist').classList.add('hidden');
+        document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
+    } else if (currentPath === '/lists') {
+        // Lists creation page - show the creation interface, hide homepage
+        document.getElementById('home-page').classList.add('hidden');
+        document.getElementById('create-section').classList.remove('hidden');
+        document.getElementById('create-wishlist').classList.remove('hidden');
+        document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
+    } else if (wishlistId) {
+        if (isCreatorView) {
+            // For creator view, show creation section and hide display section
+            document.getElementById('create-section').classList.remove('hidden');
+            document.getElementById('create-wishlist').classList.remove('hidden');
+            document.getElementById('display-wishlist').classList.add('hidden');
+
+            // Show the current wishlist section on creator view
+            document.getElementById('current-wishlist').classList.remove('hidden');
+
+            // Show the flex container that holds the create sections
+            const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+            if (createWishlistParent) {
+                createWishlistParent.classList.remove('hidden');
+            }
+
+            // Adjust the right section to use 2/3 width when left section is visible
+            const rightSection = document.getElementById('right-section');
+            if (rightSection) {
+                rightSection.classList.remove('w-full');
+                rightSection.classList.add('lg:w-2/3');
+            }
+        } else {
+            // For guest view, hide creation section and show display section
+            document.getElementById('create-section').classList.add('hidden');
+            document.getElementById('create-wishlist').classList.add('hidden');
+            document.getElementById('display-wishlist').classList.remove('hidden');
+
+            // Hide the current wishlist section on guest view
+            document.getElementById('current-wishlist').classList.add('hidden');
+
+            // Hide the flex container that holds the create sections
+            const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+            if (createWishlistParent) {
+                createWishlistParent.classList.add('hidden');
+            }
+
+            // Adjust the right section to take full width when left section is hidden
+            const rightSection = document.getElementById('right-section');
+            if (rightSection) {
+                rightSection.classList.remove('lg:w-2/3');
+                rightSection.classList.add('w-full');
+            }
+        }
+
+        // Refresh the view
+        loadWishlistById(wishlistId);
+    } else {
+        // Default fallback - show creation interface
+        document.getElementById('home-page').classList.add('hidden');
+        document.getElementById('create-section').classList.remove('hidden');
+        document.getElementById('create-wishlist').classList.remove('hidden');
+        document.getElementById('display-wishlist').classList.add('hidden');
+        document.getElementById('statistics-section').classList.add('hidden');
+
+        // Show the current wishlist section in default create mode
+        document.getElementById('current-wishlist').classList.remove('hidden');
+
+        // Show the flex container that holds the create sections
+        const createWishlistParent = document.getElementById('create-wishlist').parentElement;
+        if (createWishlistParent) {
+            createWishlistParent.classList.remove('hidden');
+        }
+
+        // Adjust the right section to use 2/3 width when left section is visible
+        const rightSection = document.getElementById('right-section');
+        if (rightSection) {
+            rightSection.classList.remove('w-full');
+            rightSection.classList.add('lg:w-2/3');
         }
     }
 });
@@ -1179,9 +1940,6 @@ async function loadWishlistById(wishlistId) {
         const wishlistData = await response.json();
 
         if (response.ok) {
-            // The create section visibility is handled by the load event
-            viewLinkInput.value = window.location.href;
-
             // Display the loaded wishlist
             displayWishlistFromServer(wishlistData, wishlistId);
 
@@ -1207,6 +1965,23 @@ async function loadWishlistById(wishlistId) {
 
                     // Render the current wishlist in the creation interface
                     renderCurrentWishlist();
+
+                    // Set the person's name to the creator's name
+                    personNameInput.value = wishlistData.creator.name;
+
+                    // Show the share link for the current list and update URL if needed
+                    if (currentWishlistShareToken) {
+                        const shareableLink = `${window.location.origin}/lists/${currentWishlistShareToken}/check`;
+
+                        // Update the URL to the owner's view (without /check) for the owner
+                        const ownerUrl = `${window.location.origin}/lists/${currentWishlistShareToken}`;
+                        if (!window.location.pathname.includes(currentWishlistShareToken) || window.location.pathname.endsWith('/check')) {
+                            window.history.replaceState({}, '', ownerUrl);
+                        }
+
+                        shareLinkInput.value = shareableLink;
+                        shareLinkContainer.classList.remove('hidden');
+                    }
                 }
             }
         } else {

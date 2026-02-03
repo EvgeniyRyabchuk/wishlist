@@ -7,7 +7,7 @@ const translations = {
         yourName: 'Your Name:',
         itemName: 'Item Name:',
         itemLink: 'Item Link (optional):',
-        paste: 'Paste',
+        pasteAndAdd: 'Paste and Add',
         price: 'Price (optional):',
         addItem: 'Add Item',
         loadingProduct: 'Loading product information...',
@@ -37,7 +37,8 @@ const translations = {
         yourNamePlaceholder: 'Your Name',
         welcomeMessage: 'Welcome to Birthday Wishlist!',
         welcomeDescription: 'Create your personal wishlist and share it with friends and family.',
-        createButton: 'Create Your Wishlist'
+        createButton: 'Create Your Wishlist',
+        resetForm: 'Reset Form'
     },
     uk: {
         title: 'Платформа списків бажань на день народження',
@@ -46,7 +47,7 @@ const translations = {
         yourName: 'Ваше ім\'я:',
         itemName: 'Назва товару:',
         itemLink: 'Посилання на товар (необов\'язково):',
-        paste: 'Вставити',
+        pasteAndAdd: 'Вставити та додати',
         price: 'Ціна (необов\'язково):',
         addItem: 'Додати товар',
         loadingProduct: 'Завантаження інформації про товар...',
@@ -76,7 +77,8 @@ const translations = {
         yourNamePlaceholder: 'Ваше ім\'я',
         welcomeMessage: 'Ласкаво просимо до Birthday Wishlist!',
         welcomeDescription: 'Створіть особистий список бажань та поділіться ним з друзями та родиною.',
-        createButton: 'Створити свій список бажань'
+        createButton: 'Створити свій список бажань',
+        resetForm: 'Очистити форму'
     },
     ru: {
         title: 'Платформа списков желаний на день рождения',
@@ -85,7 +87,7 @@ const translations = {
         yourName: 'Ваше имя:',
         itemName: 'Название товара:',
         itemLink: 'Ссылка на товар (необязательно):',
-        paste: 'Вставить',
+        pasteAndAdd: 'Вставить и добавить',
         price: 'Цена (необязательно):',
         addItem: 'Добавить товар',
         loadingProduct: 'Загрузка информации о товаре...',
@@ -115,7 +117,8 @@ const translations = {
         yourNamePlaceholder: 'Ваше имя',
         welcomeMessage: 'Добро пожаловать в Birthday Wishlist!',
         welcomeDescription: 'Создайте личный список желаний и поделитесь им с друзьями и семьей.',
-        createButton: 'Создать свой список желаний'
+        createButton: 'Создать свой список желаний',
+        resetForm: 'Очистить форму'
     },
     de: {
         title: 'Geburtstags-Wunschliste-Plattform',
@@ -124,7 +127,7 @@ const translations = {
         yourName: 'Ihr Name:',
         itemName: 'Artikelname:',
         itemLink: 'Artikellink (optional):',
-        paste: 'Einfügen',
+        pasteAndAdd: 'Einfügen und hinzufügen',
         price: 'Preis (optional):',
         addItem: 'Artikel hinzufügen',
         loadingProduct: 'Produktinformationen werden geladen...',
@@ -154,6 +157,7 @@ const translations = {
         yourNamePlaceholder: 'Ihr Name',
         welcomeMessage: 'Willkommen bei Birthday Wishlist!',
         welcomeDescription: 'Erstellen Sie Ihre persönliche Wunschliste und teilen Sie sie mit Freunden und Familie.',
-        createButton: 'Erstellen Sie Ihre Wunschliste'
+        createButton: 'Erstellen Sie Ihre Wunschliste',
+        resetForm: 'Formular zurücksetzen'
     }
 };

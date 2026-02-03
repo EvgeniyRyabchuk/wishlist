@@ -360,10 +360,17 @@ async function extractRozetkaInfo(page) {
     }
   }
 
+  // Wait a bit more for dynamic content to load, especially for price elements
+  await page.waitForTimeout(2000);
+
   // Try to get price - multiple possible selectors (with Ukrainian/Russian price formats)
   let price = null;
   const priceSelectors = [
-    '.product-price__big .product-price__sum',
+    '.product-price__big.text-2xl.font-bold',  // Specific selector for current price based on provided HTML
+    '.product-price__small', // Previous price if available
+    '.product-price__big',  // Alternative selector for main price
+    '.product-price__wrap .product-price__big', // Price within the wrap div
+    '.product-price__wrap .product-price__small', // Previous price within the wrap div
     '.product__price .price',
     '[data-testid="product-main-price"] .price__current',
     '.price_value',
@@ -381,25 +388,45 @@ async function extractRozetkaInfo(page) {
 
   for (const selector of priceSelectors) {
     try {
+      // Wait for the element to be available
+      await page.waitForSelector(selector, { timeout: 5000 });
       const element = await page.$(selector);
       if (element) {
-        price = await page.evaluate(el => el.textContent?.trim(), element);
-        if (price) {
-          // Clean up the price text to remove extra spaces and newlines
+        price = await page.evaluate(el => {
+          // Get the text content and clean it
+          let text = el.textContent?.trim();
+          // Remove extra whitespace and normalize spaces
+          if (text) {
+            text = text.replace(/\s+/g, ' ').trim();
+            // Remove currency symbols but keep the numbers and spaces (for thousands separators)
+            text = text.replace(/[^\d\s.,]/g, '').trim();
+          }
+          return text;
+        }, element);
+
+        if (price && price.length > 0) {
+          // Clean up the price text to remove extra spaces and normalize
           price = price.replace(/\s+/g, ' ').trim();
+          console.log(`Found price with selector "${selector}":`, price);
           break;
         }
       }
     } catch (e) {
+      console.log(`Error with selector "${selector}":`, e.message);
       continue; // Try next selector
     }
   }
 
   // If we still don't have a price, try to find it in the entire document
-  if (!price) {
+  if (!price || price.length === 0) {
+    console.log('No price found with specific selectors, trying document-wide search...');
+
     // Look for price patterns in the whole document
     try {
-      const bodyText = await page.textContent('body');
+      // Get the full text content of the body
+      const bodyHandle = await page.$('body');
+      const bodyText = await page.evaluate(body => body.innerText, bodyHandle);
+
       const pricePatterns = [
         /(?:\$|€|£|₴|грн|\bUAH\b|\brub\b|\bруб\b)[\s\u00a0]?([\d\s.,]+)/i,
         /([\d\s.,]+)[\s\u00a0]?(?:\$|€|£|₴|грн|\bUAH\b|\brub\b|\bруб\b)/i,
@@ -409,71 +436,114 @@ async function extractRozetkaInfo(page) {
 
       for (const pattern of pricePatterns) {
         const match = bodyText.match(pattern);
-        if (match) {
-          price = match[1].trim();
+        if (match && match[1]) {
+          price = match[1].replace(/[^\d\s.,]/g, '').trim(); // Clean the matched price
+          console.log('Found price with pattern:', price);
           break;
         }
       }
     } catch (e) {
-      // Ignore error and continue
+      console.log('Error in document-wide price search:', e.message);
+    }
+  }
+
+  // If we still don't have a meaningful price, try alternative approaches
+  if (!price || price.length === 0) {
+    try {
+      // Try to find elements that look like prices using attribute-based selectors
+      const potentialPriceElements = await page.$$('.product-price *, [class*="price"] *, [class*="cost"] *, [class*="value"] *');
+
+      for (const element of potentialPriceElements) {
+        try {
+          const text = await page.evaluate(el => el.textContent?.trim(), element);
+          if (text && /\d/.test(text)) { // Contains at least one digit
+            // Check if it looks like a price (contains numbers and possibly currency symbols)
+            const cleanedText = text.replace(/[^\d\s.,]/g, '').trim();
+            if (cleanedText && cleanedText.length > 1) { // At least 2 characters
+              price = cleanedText;
+              console.log('Found potential price in alternative search:', price);
+              break;
+            }
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    } catch (e) {
+      console.log('Error in alternative price search:', e.message);
     }
   }
 
   // Try to get main product image - focus on the most common selectors for main product images
   let image = null;
   const imageSelectors = [
-    // Main product image in slider/gallery area (based on the structure you provided)
-    'rz-gallery-main-content-image img',
-    '.main-slider__item img',
-    '.main-slider__wrap img',
+    // Highest priority: First thumbnail image in Rozetka gallery (the one with "зображення 1")
+    'rz-gallery-main-thumbnail-image button:first-child img',  // First thumbnail image
+    'rz-gallery-main-thumbnail-image img:first-child',         // Alternative first thumbnail
 
-    // Rozetka specific selectors (including Angular-specific attributes)
-    'img[rzimage]',
-    'img[ng-img="true"]',
-    'img.photo-zoom__preview',
-    'img.image-gallery__preview',
-    'img.product-image__preview',
-    '[data-testid="product-image"] img',
-    'img.product-image__main',
+    // Main content image (what's currently displayed)
+    'rz-gallery-main-content-image img:first-child',           // Main content image
 
-    // General e-commerce selectors
-    'img.main-image',
-    'img.product-image',
-    'img.product-photo',
-    'img.product-img',
-    'img[itemprop="image"]',
-    '#product-image img',
-    '#main-image img',
-    '.main-image img',
-    '.product-image img',
-    '.product-photos img',
-    '.product-gallery img',
-    '.product-images img',
+    // Based on recommended selectors
+    'rz-gallery img:first-child',                              // Main gallery image
+    'img[src*="content"]:first-child',                         // Images from content domain (main product images)
+
+    // More specific selectors for Rozetka main image
+    'rz-gallery-main-content-image img:nth-child(1)',          // Alternative for main image
+    '.main-slider__item:first-child img',                      // First image in main slider
+    '.main-slider__wrap:first-child img',                      // First image in main wrap
+
+    // Rozetka specific selectors for main image (prioritizing primary image)
+    'img[rzimage]:first-child',
+    'img[ng-img="true"]:first-child',
+    'img.photo-zoom__preview:first-child',
+    'img.image-gallery__preview:first-child',
+    'img.product-image__preview:first-child',
+    '[data-testid="product-image"] img:first-child',
+    'img.product-image__main:first-child',
+
+    // General e-commerce selectors for main image
+    'img.main-image:first-child',
+    'img.product-image:first-child',
+    'img.product-photo:first-child',
+    'img.product-img:first-child',
+    'img[itemprop="image"]:first-child',
+    '#product-image img:first-child',
+    '#main-image img:first-child',
+    '.main-image img:first-child',
+
+    // Secondary priority: Other product images (but still first in their container)
+    '.product-photos img:first-child',
+    '.product-gallery img:first-child',
+    '.product-images img:first-child',
 
     // Prom.ua specific
-    '.product-card-top__preview img',
-    '.photo-wrap img',
+    '.product-card-top__preview img:first-child',
+    '.photo-wrap img:first-child',
 
     // OLX specific
-    '.offer-photos-container img',
-    '.gallery-item img',
-    '.photo-slide img',
+    '.offer-photos-container img:first-child',
+    '.gallery-item:first-child img',
+    '.photo-slide:first-child img',
 
-    // Fallback to any image that looks like a product image
-    'img[src*="product"]',
-    'img[src*="image"]',
-    'img[src*="photo"]',
-    'img[src*="catalog"]',
-    'img[src*="upload"]'
+    // Fallback to any image that looks like a product image (first occurrence)
+    'img[src*="product"]:first-child',
+    'img[src*="image"]:first-child',
+    'img[src*="photo"]:first-child',
+    'img[src*="catalog"]:first-child',
+    'img[src*="upload"]:first-child'
   ];
 
   console.log('Attempting to find main product image using selectors...');
   for (const selector of imageSelectors) {
     try {
+      // Count how many images match this selector
       const elements = await page.$$(selector);
-      console.log(`Selector "${selector}" found ${elements.length} elements`);
+      console.log(`Selector "${selector}" found ${elements.length} image elements`);
 
-      for (const element of elements) {
+      // Look for the first image that matches the selector (which will be the last due to :last-child)
+      const element = await page.$(selector);
+      if (element) {
         // Try multiple possible image URL sources, including Angular-specific attributes
         let imageUrl = await page.evaluate(el => {
           return el.src ||
@@ -514,17 +584,149 @@ async function extractRozetkaInfo(page) {
           // If we found a valid image URL, use it
           image = imageUrl;
           console.log('Selected image URL:', image);
-          break;
+          break; // Exit the selector loop once we find a valid image
         }
       }
-
-      if (image) {
-        break; // Found an image, exit the outer loop too
-      }
     } catch (e) {
+      console.log(`Error with selector "${selector}":`, e.message);
       continue; // Try next selector
     }
   }
+
+  // Additional check: If we still don't have an image, try to get the first image from the main gallery area
+  if (!image) {
+    try {
+      // Try to target the specific gallery area more directly
+      // First try to get the first thumbnail image (the one with "зображення 1")
+      const firstThumbnailImage = await page.$('rz-gallery-main-thumbnail-image button:first-child img');
+      if (firstThumbnailImage) {
+        let imageUrl = await page.evaluate(el => {
+          return el.src ||
+                 el.dataset.src ||
+                 el.getAttribute('data-lazy-src') ||
+                 el.getAttribute('ng-src') ||
+                 el.getAttribute('data-original') ||
+                 el.getAttribute('data-ng-src');
+        }, firstThumbnailImage);
+
+        if (imageUrl && !imageUrl.startsWith('data:') &&
+            !imageUrl.includes('placeholder') &&
+            !imageUrl.includes('no-image') &&
+            !imageUrl.includes('svg') &&
+            !imageUrl.includes('blank')) {
+
+          // Make sure the image URL is absolute, not relative
+          try {
+            new URL(imageUrl);
+          } catch (e) {
+            // If it's a relative URL, convert to absolute using the page URL
+            if (imageUrl.startsWith('//')) {
+              imageUrl = 'https:' + imageUrl;
+            } else if (imageUrl.startsWith('/')) {
+              const pageUrl = page.url();
+              const baseUrl = new URL(pageUrl).origin;
+              imageUrl = baseUrl + imageUrl;
+            }
+          }
+
+          image = imageUrl;
+          console.log('Selected first thumbnail image URL:', image);
+        }
+      }
+
+      // If the first thumbnail selector didn't work, try the main content image
+      if (!image) {
+        const mainContentImage = await page.$('rz-gallery-main-content-image img');
+        if (mainContentImage) {
+          let imageUrl = await page.evaluate(el => {
+            return el.src ||
+                   el.dataset.src ||
+                   el.getAttribute('data-lazy-src') ||
+                   el.getAttribute('ng-src') ||
+                   el.getAttribute('data-original') ||
+                   el.getAttribute('data-ng-src');
+          }, mainContentImage);
+
+          if (imageUrl && !imageUrl.startsWith('data:') &&
+              !imageUrl.includes('placeholder') &&
+              !imageUrl.includes('no-image') &&
+              !imageUrl.includes('svg') &&
+              !imageUrl.includes('blank')) {
+
+            // Make sure the image URL is absolute, not relative
+            try {
+              new URL(imageUrl);
+            } catch (e) {
+              // If it's a relative URL, convert to absolute using the page URL
+              if (imageUrl.startsWith('//')) {
+                imageUrl = 'https:' + imageUrl;
+              } else if (imageUrl.startsWith('/')) {
+                const pageUrl = page.url();
+                const baseUrl = new URL(pageUrl).origin;
+                imageUrl = baseUrl + imageUrl;
+              }
+            }
+
+            image = imageUrl;
+            console.log('Selected main content image URL:', image);
+          }
+        }
+      }
+
+      // If the main gallery selectors didn't work, fall back to the original approach
+      if (!image) {
+        const gallerySelector = 'rz-gallery-main-content-image';
+
+        // Get all images in the gallery and pick the first one
+        const allGalleryImages = await page.$$(gallerySelector + ' img');
+        console.log(`Gallery selector "${gallerySelector} img" found ${allGalleryImages.length} total images`);
+
+        if (allGalleryImages && allGalleryImages.length > 0) {
+          // Get the first image specifically
+          const firstImage = allGalleryImages[0];
+          let imageUrl = await page.evaluate(el => {
+            return el.src ||
+                   el.dataset.src ||
+                   el.getAttribute('data-lazy-src') ||
+                   el.getAttribute('ng-src') ||
+                   el.getAttribute('data-original') ||
+                   el.getAttribute('data-ng-src');
+          }, firstImage);
+
+          if (imageUrl) {
+            // Skip invalid image URLs
+            if (!imageUrl.startsWith('data:') &&
+                !imageUrl.includes('placeholder') &&
+                !imageUrl.includes('no-image') &&
+                !imageUrl.includes('svg') &&
+                !imageUrl.includes('blank')) {
+
+              // Make sure the image URL is absolute, not relative
+              try {
+                new URL(imageUrl);
+              } catch (e) {
+                // If it's a relative URL, convert to absolute using the page URL
+                if (imageUrl.startsWith('//')) {
+                  imageUrl = 'https:' + imageUrl;
+                } else if (imageUrl.startsWith('/')) {
+                  const pageUrl = page.url();
+                  const baseUrl = new URL(pageUrl).origin;
+                  imageUrl = baseUrl + imageUrl;
+                }
+              }
+
+              image = imageUrl;
+              console.log('Selected first gallery image URL:', image);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log('Error getting first gallery image:', e.message);
+    }
+  }
+
+  console.log('Rozetka extraction result - Title:', title, 'Price:', price, 'Image:', image);
 
   return {
     title: title,
@@ -588,12 +790,12 @@ async function extractPromInfo(page) {
   // Try to get image - multiple possible selectors
   let image = null;
   const imageSelectors = [
-    '.product-card-top__preview img',
-    '.photo-wrap img',
-    'img[src*="image"]',
-    '.product-image img',
-    '.gallery-preview img',
-    'img.main-photo'
+    '.product-card-top__preview img:first-child',
+    '.photo-wrap img:first-child',
+    'img[src*="image"]:first-child',
+    '.product-image img:first-child',
+    '.gallery-preview img:first-child',
+    'img.main-photo:first-child'
   ];
 
   for (const selector of imageSelectors) {
@@ -671,12 +873,12 @@ async function extractOlxInfo(page) {
   // Try to get image - multiple possible selectors
   let image = null;
   const imageSelectors = [
-    'img[data-testid="swiper-slide"]',
-    '.photo-container img',
-    'img[src*="image"]',
-    '.offer-photos-container img',
-    '.gallery-item img',
-    'img.main-photo'
+    'img[data-testid="swiper-slide"]:first-child',
+    '.photo-container img:first-child',
+    'img[src*="image"]:first-child',
+    '.offer-photos-container img:first-child',
+    '.gallery-item img:first-child',
+    'img.main-photo:first-child'
   ];
 
   for (const selector of imageSelectors) {
@@ -732,7 +934,7 @@ async function extractAmazonInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['#landingImage', '#imgBlkFront', '#altImages img', '#imageBlock img'];
+  const imageSelectors = ['#landingImage', '#imgBlkFront', '#altImages img:first-child', '#imageBlock img:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -786,7 +988,7 @@ async function extractEbayInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['#icImg', '#mainImgHldr', '.ux-image-carousel-item img', 'img#icImg'];
+  const imageSelectors = ['#icImg', '#mainImgHldr', '.ux-image-carousel-item img:first-child', 'img#icImg'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -840,7 +1042,7 @@ async function extractBestBuyInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['img.primary-image', 'img[data-test="primary-hero-image"]', 'img.zoom-image'];
+  const imageSelectors = ['img.primary-image:first-child', 'img[data-test="primary-hero-image"]:first-child', 'img.zoom-image:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -894,7 +1096,7 @@ async function extractTargetInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['img[data-test="image"]', 'img.ProductImage-module__image___3oCZv', 'img'];
+  const imageSelectors = ['img[data-test="image"]:first-child', 'img.ProductImage-module__image___3oCZv:first-child', 'img:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -948,7 +1150,7 @@ async function extractAliexpressInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['#imgExchange img', '.magnifier-handle', 'img#characteristic-img-0'];
+  const imageSelectors = ['#imgExchange img:first-child', '.magnifier-handle:first-child', 'img#characteristic-img-0'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -1002,7 +1204,7 @@ async function extractWalmartInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['img[data-testid="product-image"]', 'img.prod-ProductImage', 'img'];
+  const imageSelectors = ['img[data-testid="product-image"]:first-child', 'img.prod-ProductImage:first-child', 'img:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -1056,7 +1258,7 @@ async function extractEtsyInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['img[data-listing-image]'];
+  const imageSelectors = ['img[data-listing-image]:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -1110,7 +1312,7 @@ async function extractNeweggInfo(page) {
 
   // Try to get image
   let image = null;
-  const imageSelectors = ['#landingImage', 'img.master-image'];
+  const imageSelectors = ['#landingImage', 'img.master-image:first-child'];
   for (const selector of imageSelectors) {
     try {
       const element = await page.$(selector);
@@ -1192,47 +1394,80 @@ async function extractGenericInfo(page) {
     }
   }
 
-  // If no og:image found, try to find the largest image on the page
+  // If no og:image found, try to find the main product image on the page
   if (!ogImage) {
-    console.log('No og:image found, looking for largest image on page...');
+    console.log('No og:image found, looking for main product image on page...');
 
     try {
-      const images = await page.$$('img');
-      console.log(`Found ${images.length} images on the page`);
+      // Try to find the main product image first using common selectors
+      const mainImageSelectors = [
+        'img[itemprop="image"]:first-child',
+        '#main-image img:first-child',
+        '#product-image img:first-child',
+        '.main-image img:first-child',
+        '.product-image img:first-child',
+        '.product-photo img:first-child',
+        '.product-img:first-child',
+        '[data-testid="product-image"] img:first-child',
+        'img[data-main-image]:first-child',
+        'img[data-role="main-image"]:first-child'
+      ];
 
-      // Filter out tiny images and find the largest one
-      const validImages = [];
-      for (const img of images) {
+      for (const selector of mainImageSelectors) {
         try {
-          const src = await page.evaluate(el => el.src || el.dataset.src, img);
-
-          // Check if image has a valid src
-          if (src && !src.startsWith('data:') && !src.includes('placeholder') && !src.includes('svg')) {
-            const boundingBox = await img.boundingBox();
-            if (boundingBox && boundingBox.width > 50 && boundingBox.height > 50) {
-              validImages.push({ element: img, src, width: boundingBox.width, height: boundingBox.height });
+          const element = await page.$(selector);
+          if (element) {
+            const src = await page.evaluate(el => el.src || el.dataset.src, element);
+            if (src && !src.startsWith('data:') && !src.includes('placeholder') && !src.includes('svg')) {
+              ogImage = src;
+              console.log('Selected main product image:', ogImage);
+              break;
             }
           }
         } catch (e) {
-          continue; // Skip if there's an error processing this image
+          continue; // Try next selector
         }
       }
 
-      console.log(`Found ${validImages.length} valid images after filtering`);
+      // If still no main image found, try to find the largest image
+      if (!ogImage) {
+        const images = await page.$$('img');
+        console.log(`Found ${images.length} images on the page`);
 
-      if (validImages.length > 0) {
-        // Find the largest image
-        const largestImage = validImages.reduce((prev, current) =>
-          (current.width * current.height) > (prev.width * prev.height) ? current : prev
-        );
+        // Filter out tiny images and find the largest one
+        const validImages = [];
+        for (const img of images) {
+          try {
+            const src = await page.evaluate(el => el.src || el.dataset.src, img);
 
-        if (largestImage) {
-          ogImage = largestImage.src;
-          console.log('Selected largest image:', ogImage);
+            // Check if image has a valid src
+            if (src && !src.startsWith('data:') && !src.includes('placeholder') && !src.includes('svg')) {
+              const boundingBox = await img.boundingBox();
+              if (boundingBox && boundingBox.width > 50 && boundingBox.height > 50) {
+                validImages.push({ element: img, src, width: boundingBox.width, height: boundingBox.height });
+              }
+            }
+          } catch (e) {
+            continue; // Skip if there's an error processing this image
+          }
+        }
+
+        console.log(`Found ${validImages.length} valid images after filtering`);
+
+        if (validImages.length > 0) {
+          // Find the largest image
+          const largestImage = validImages.reduce((prev, current) =>
+            (current.width * current.height) > (prev.width * prev.height) ? current : prev
+          );
+
+          if (largestImage) {
+            ogImage = largestImage.src;
+            console.log('Selected largest image:', ogImage);
+          }
         }
       }
     } catch (e) {
-      console.log('Error finding largest image:', e);
+      console.log('Error finding main product image:', e);
     }
   }
 
@@ -1373,39 +1608,72 @@ async function extractContentBasedInfo(page) {
   // Try to find main product image
   let image = null;
 
-  // Look for images near product title or price elements
-  const productAreaSelectors = ['h1', '.product', '.item', '.product-card', '.product-detail'];
-  let productAreaFound = false;
+  // Look for main product image first using specific selectors
+  const mainImageSelectors = [
+    'img[itemprop="image"]:first-child',
+    '#main-image img:first-child',
+    '#product-image img:first-child',
+    '.main-image img:first-child',
+    '.product-image img:first-child',
+    '.product-photo img:first-child',
+    '.product-img:first-child',
+    '[data-testid="product-image"] img:first-child',
+    'img[data-main-image]:first-child',
+    'img[data-role="main-image"]:first-child'
+  ];
 
-  for (const selector of productAreaSelectors) {
+  // Try main image selectors first
+  for (const selector of mainImageSelectors) {
     try {
-      const productArea = await page.$(selector);
-      if (productArea) {
-        const imagesInArea = await page.$$(selector + ' img');
-        // Find the largest image in the product area
-        let largestImageSize = 0;
-        for (const img of imagesInArea) {
-          try {
-            const src = await page.evaluate(el => el.src || el.dataset.src, img);
-            const boundingBox = await img.boundingBox();
-
-            if (boundingBox && boundingBox.width > 50 && boundingBox.height > 50) {
-              // Skip placeholder images
-              if (src && !src.includes('placeholder') && !src.includes('no-image') && !src.startsWith('data:')) {
-                image = src;
-                largestImageSize = boundingBox.width * boundingBox.height;
-                productAreaFound = true;
-                break;
-              }
-            }
-          } catch (e) {
-            continue; // Skip if there's an error processing this image
-          }
+      const element = await page.$(selector);
+      if (element) {
+        const src = await page.evaluate(el => el.src || el.dataset.src, element);
+        if (src && !src.startsWith('data:') && !src.includes('placeholder') && !src.includes('svg')) {
+          image = src;
+          console.log('Selected main product image:', image);
+          break;
         }
-        if (image) break;
       }
     } catch (e) {
       continue; // Try next selector
+    }
+  }
+
+  // If no main image found, look for images near product title or price elements
+  if (!image) {
+    const productAreaSelectors = ['h1', '.product', '.item', '.product-card', '.product-detail'];
+    let productAreaFound = false;
+
+    for (const selector of productAreaSelectors) {
+      try {
+        const productArea = await page.$(selector);
+        if (productArea) {
+          const imagesInArea = await page.$$(selector + ' img:first-child'); // Only get first image
+          // Find the largest image in the product area
+          let largestImageSize = 0;
+          for (const img of imagesInArea) {
+            try {
+              const src = await page.evaluate(el => el.src || el.dataset.src, img);
+              const boundingBox = await img.boundingBox();
+
+              if (boundingBox && boundingBox.width > 50 && boundingBox.height > 50) {
+                // Skip placeholder images
+                if (src && !src.includes('placeholder') && !src.includes('no-image') && !src.startsWith('data:')) {
+                  image = src;
+                  largestImageSize = boundingBox.width * boundingBox.height;
+                  productAreaFound = true;
+                  break;
+                }
+              }
+            } catch (e) {
+              continue; // Skip if there's an error processing this image
+            }
+          }
+          if (image) break;
+        }
+      } catch (e) {
+        continue; // Try next selector
+      }
     }
   }
 
@@ -1602,10 +1870,46 @@ app.post('/api/goods', async (req, res) => {
     // Create the good
     let priceValue = null;
     if (productInfo.price) {
-      // Clean the price string and convert to number
-      const cleanPrice = productInfo.price.toString().replace(/[^\d.,]/g, '');
-      if (cleanPrice && cleanPrice.trim() !== '') {
-        priceValue = parseFloat(cleanPrice.replace(',', '')) || null;
+      // Clean the price string and convert to number with better international support
+      let cleanPrice = productInfo.price.toString();
+
+      // Handle various international price formats
+      // Remove currency symbols and other non-numeric characters except decimal markers
+      cleanPrice = cleanPrice.replace(/[^\d.,\s]/g, '');
+
+      // Handle different decimal/thousands separators based on common patterns
+      // If there are multiple commas and only one dot, commas are likely thousands separators
+      const commaCount = (cleanPrice.match(/,/g) || []).length;
+      const dotCount = (cleanPrice.match(/\./g) || []).length;
+
+      if (commaCount > 1 && dotCount <= 1) {
+        // Commas are thousands separators, remove them
+        cleanPrice = cleanPrice.replace(/,/g, '');
+      } else if (commaCount === 1 && dotCount === 0) {
+        // Comma is decimal separator, replace with dot
+        cleanPrice = cleanPrice.replace(/,/g, '.');
+      } else if (commaCount > 1 && dotCount === 1) {
+        // If dot comes after commas, it's decimal separator, remove commas
+        // If dot comes before commas, comma might be decimal separator
+        const dotIndex = cleanPrice.lastIndexOf('.');
+        const commaIndex = cleanPrice.lastIndexOf(',');
+        if (commaIndex > dotIndex) {
+          // Last comma comes after last dot, treat comma as decimal separator
+          cleanPrice = cleanPrice.replace(/\./g, ''); // Remove dots (thousands)
+          cleanPrice = cleanPrice.replace(/,/g, '.'); // Replace last comma with dot
+        } else {
+          // Dot is decimal separator, remove commas
+          cleanPrice = cleanPrice.replace(/,/g, '');
+        }
+      }
+
+      // Remove spaces (common in European formats)
+      cleanPrice = cleanPrice.replace(/\s/g, '');
+
+      // Extract the numeric value
+      const priceMatch = cleanPrice.match(/[\d.]+/);
+      if (priceMatch) {
+        priceValue = parseFloat(priceMatch[0]) || null;
       }
     }
 
@@ -1708,6 +2012,27 @@ app.delete('/api/goods/:id/reserve', async (req, res) => {
     console.error('Error unreserving product:', error);
     res.status(500).json({
       error: error.message || 'Failed to remove reservation'
+    });
+  }
+});
+
+// API endpoint to delete a good
+app.delete('/api/goods/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const good = await db.Goods.findByPk(id);
+    if (!good) {
+      return res.status(404).json({ error: 'Good not found' });
+    }
+
+    await good.destroy();
+
+    res.json({ message: 'Good deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting good:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to delete good'
     });
   }
 });
@@ -1825,6 +2150,35 @@ app.get('/lists/:listId/check', async (req, res) => {
   }
 });
 
+// API endpoint to delete a wishlist
+app.delete('/api/lists/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the list by ID
+    const list = await db.List.findByPk(id);
+
+    if (!list) {
+      return res.status(404).json({ error: 'List not found' });
+    }
+
+    // Delete all goods associated with this list first (due to foreign key constraints)
+    await db.Goods.destroy({
+      where: { listId: id }
+    });
+
+    // Delete the list
+    await list.destroy();
+
+    res.json({ message: 'List deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting list:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to delete wishlist'
+    });
+  }
+});
+
 // Serve wishlist page by share token (numeric) - for creators
 app.get('/lists/:listId', async (req, res) => {
   try {
@@ -1923,10 +2277,30 @@ async function initializeDatabase() {
   }
 }
 
+// Function to get local IP address
+function getLocalIP() {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+
+  for (const interfaceName in interfaces) {
+    const interface = interfaces[interfaceName];
+    for (const iface of interface) {
+      // Skip over internal (i.e. 127.0.0.1) and non-IPv4 addresses
+      if (!iface.internal && iface.family === 'IPv4') {
+        return iface.address;
+      }
+    }
+  }
+
+  // If no external IP found, return localhost
+  return 'localhost';
+}
+
 // Start server after initializing database
 initializeDatabase().then(() => {
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Access the application from other devices using: http://${getLocalIP()}:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Supported domains: ${SUPPORTED_DOMAINS.join(', ')}`);
   });
@@ -1949,5 +2323,24 @@ initializeDatabase().then(() => {
   console.error('Failed to start server due to database error:', error);
   process.exit(1);
 });
+
+// Function to get local IP address
+function getLocalIP() {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+
+  for (const interfaceName in interfaces) {
+    const interface = interfaces[interfaceName];
+    for (const iface of interface) {
+      // Skip over internal (i.e. 127.0.0.1) and non-IPv4 addresses
+      if (!iface.internal && iface.family === 'IPv4') {
+        return iface.address;
+      }
+    }
+  }
+
+  // If no external IP found, return localhost
+  return 'localhost';
+}
 
 module.exports = app;
